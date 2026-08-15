@@ -1,0 +1,6 @@
+@Quom.AssetManagement.Api_HostAddress = http://localhost:5149
+
+GET {{Quom.AssetManagement.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
