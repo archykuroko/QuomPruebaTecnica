@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="../../Frontend/Quom.AssetManagement.Web/Quom.AssetManagement.Web.csproj" Id="d9006a95-fc39-4eb3-a847-802d865e4b65" />
   <Project Path="Quom.AssetManagement.Api/Quom.AssetManagement.Api.csproj" />
   <Project Path="Quom.AssetManagement.Tests/Quom.AssetManagement.Tests.csproj" Id="8cd701ab-0180-43d0-8d51-7c15b84d3fb7" />
 </Solution>

@@ -1,0 +1,766 @@
+﻿@page "/suppliers/new"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Components.Layout
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+
+@inject SupplierApiService SupplierApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Nuevo proveedor | Quom</PageTitle>
+
+<div class="supplier-create-page">
+
+    <button class="back-link" @onclick="GoBack">
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.7"
+             class="h-4 w-4">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+
+        <span>Volver a proveedores</span>
+    </button>
+
+    <div class="mt-6">
+        <p class="page-eyebrow">Administración</p>
+
+        <h1 class="page-title">
+            Nuevo proveedor
+        </h1>
+
+        <p class="page-description">
+            Registra la información general del proveedor.
+            Los servicios podrán asociarse después del registro.
+        </p>
+    </div>
+
+    @if (!AuthState.IsAdministrator)
+    {
+        <div class="permission-card mt-8">
+
+            <div class="info-symbol">!</div>
+
+            <div>
+                <p class="permission-title">
+                    Operación restringida
+                </p>
+
+                <p class="permission-text">
+                    Sólo los usuarios con rol Administrador
+                    pueden registrar nuevos proveedores.
+                </p>
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <div class="mt-8 grid gap-6 xl:grid-cols-[1fr_320px]">
+
+            <section class="form-card">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="section-label">
+                            Información del proveedor
+                        </p>
+
+                        <p class="mt-2 text-sm text-slate-500">
+                            Captura los datos de identificación
+                            y contacto disponibles.
+                        </p>
+                    </div>
+
+                    <span class="required-hint">
+                        * Campo obligatorio
+                    </span>
+
+                </div>
+
+                <div class="form-grid mt-7">
+
+                    <div class="full-field">
+                        <label class="field-label">
+                            Nombre del proveedor *
+                        </label>
+
+                        <input class="field-control"
+                               @bind="name"
+                               maxlength="200"
+                               placeholder="Ej. Tecnología Empresarial S.A. de C.V." />
+                    </div>
+
+                    <div>
+                        <label class="field-label">
+                            RFC / Tax ID
+                        </label>
+
+                        <input class="field-control"
+                               @bind="taxId"
+                               maxlength="50"
+                               placeholder="Ej. TEM010203AB1" />
+                    </div>
+
+                    <div>
+                        <label class="field-label">
+                            Persona de contacto
+                        </label>
+
+                        <input class="field-control"
+                               @bind="contactName"
+                               maxlength="150"
+                               placeholder="Nombre del contacto" />
+                    </div>
+
+                    <div>
+                        <label class="field-label">
+                            Correo electrónico
+                        </label>
+
+                        <input type="email"
+                               class="field-control"
+                               @bind="email"
+                               maxlength="150"
+                               placeholder="contacto@proveedor.com" />
+
+                        @if (!string.IsNullOrWhiteSpace(email) &&
+                             !IsValidEmail(email))
+                        {
+                            <p class="field-error">
+                                Ingresa un correo electrónico válido.
+                            </p>
+                        }
+                    </div>
+
+                    <div>
+                        <label class="field-label">
+                            Teléfono
+                        </label>
+
+                        <input class="field-control"
+                               @bind="phone"
+                               maxlength="50"
+                               placeholder="Ej. 55 1234 5678" />
+                    </div>
+
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(actionError))
+                {
+                    <div class="error-card mt-6">
+                        @actionError
+                    </div>
+                }
+
+                <div class="mt-8 flex flex-col-reverse gap-3
+                    sm:flex-row sm:justify-end">
+
+                    <button type="button"
+                            class="secondary-button"
+                            disabled="@isSubmitting"
+                            @onclick="GoBack">
+                        Cancelar
+                    </button>
+
+                    <button type="button"
+                            class="primary-button"
+                            disabled="@(!CanSubmit)"
+                            @onclick="CreateSupplier">
+
+                        @if (isSubmitting)
+                        {
+                            <span class="button-spinner"></span>
+                            <span>Registrando...</span>
+                        }
+                        else
+                        {
+                            <span>Registrar proveedor</span>
+                        }
+
+                    </button>
+
+                </div>
+
+            </section>
+
+            <aside class="rules-column">
+
+                <div class="rules-card">
+
+                    <p class="section-label">
+                        Reglas de registro
+                    </p>
+
+                    <div class="rule-list mt-5">
+
+                        <div class="rule-item">
+                            <span class="rule-check">✓</span>
+
+                            <p>
+                                El nombre del proveedor es obligatorio.
+                            </p>
+                        </div>
+
+                        <div class="rule-item">
+                            <span class="rule-check">✓</span>
+
+                            <p>
+                                RFC, contacto, correo y teléfono
+                                son información opcional.
+                            </p>
+                        </div>
+
+                        <div class="rule-item">
+                            <span class="rule-check">✓</span>
+
+                            <p>
+                                Si se captura un correo electrónico,
+                                debe tener un formato válido.
+                            </p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="rules-card">
+
+                    <p class="section-label">
+                        Servicios
+                    </p>
+
+                    <div class="service-note mt-5">
+
+                        <div class="info-symbol">i</div>
+
+                        <p>
+                            Primero registra al proveedor. Después podrás
+                            asociar los tipos de servicio que ofrece desde
+                            el módulo de proveedores.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="rules-card">
+
+                    <p class="section-label">
+                        Vista previa
+                    </p>
+
+                    <div class="supplier-preview mt-5">
+
+                        <div class="preview-avatar">
+                            @PreviewInitial
+                        </div>
+
+                        <div>
+                            <p class="preview-name">
+                                @PreviewName
+                            </p>
+
+                            <p class="preview-secondary">
+                                @DisplayValue(taxId, "Sin RFC")
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div class="summary-list mt-5">
+
+                        <div>
+                            <span>Contacto</span>
+                            <strong>
+                                @DisplayValue(contactName, "Pendiente")
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Correo</span>
+                            <strong>
+                                @DisplayValue(email, "Pendiente")
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Teléfono</span>
+                            <strong>
+                                @DisplayValue(phone, "Pendiente")
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </aside>
+
+        </div>
+    }
+
+</div>
+
+<style>
+
+    .supplier-create-page {
+        width: 100%;
+        max-width: 1280px;
+        margin-inline: auto;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 13px;
+        transition: color .16s ease;
+    }
+
+        .back-link:hover {
+            color: #cbd5e1;
+        }
+
+    .page-eyebrow,
+    .section-label,
+    .field-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+    .page-eyebrow {
+        letter-spacing: .24em;
+    }
+
+    .page-title {
+        margin-top: 7px;
+        color: #f8fafc;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -.025em;
+    }
+
+    .page-description {
+        margin-top: 7px;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .form-card,
+    .rules-card {
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+    .form-card {
+        padding: 24px;
+    }
+
+    .rules-card {
+        padding: 20px;
+    }
+
+    .rules-column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-self: start;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .required-hint {
+        color: #475569;
+        font-size: 10px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap: 20px;
+    }
+
+    .full-field {
+        grid-column: 1 / -1;
+    }
+
+    .field-control {
+        width: 100%;
+        margin-top: 9px;
+        padding: 12px 13px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 11px;
+        outline: none;
+        background: #0d1014;
+        color: #cbd5e1;
+        font-size: 13px;
+        transition: border-color .17s ease, background .17s ease;
+    }
+
+        .field-control:focus {
+            border-color: rgba(148,163,184,.30);
+            background: #0f1216;
+        }
+
+        .field-control::placeholder {
+            color: #334155;
+        }
+
+    .field-error {
+        margin-top: 7px;
+        color: #fca5a5;
+        font-size: 11px;
+    }
+
+    .rule-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .rule-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .rule-check {
+        color: #86efac;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .service-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .info-symbol {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.13);
+        border-radius: 7px;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .supplier-preview {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .preview-avatar {
+        display: flex;
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 10px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .preview-name {
+        color: #cbd5e1;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .preview-secondary {
+        margin-top: 2px;
+        color: #475569;
+        font-size: 11px;
+    }
+
+    .summary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+    }
+
+        .summary-list > div {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,.035);
+            font-size: 11px;
+        }
+
+        .summary-list span {
+            color: #475569;
+        }
+
+        .summary-list strong {
+            max-width: 170px;
+            overflow: hidden;
+            color: #94a3b8;
+            font-weight: 500;
+            text-align: right;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+    .permission-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid rgba(248,113,113,.10);
+        border-radius: 14px;
+        background: rgba(248,113,113,.025);
+    }
+
+    .permission-title {
+        color: #e2e8f0;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .permission-text {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 12px;
+    }
+
+    .error-card {
+        padding: 13px 15px;
+        border: 1px solid rgba(248,113,113,.12);
+        border-radius: 11px;
+        background: rgba(248,113,113,.035);
+        color: #fca5a5;
+        font-size: 13px;
+    }
+
+    .primary-button,
+    .secondary-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 17px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .17s ease, opacity .17s ease;
+    }
+
+    .primary-button {
+        border: 1px solid rgba(255,255,255,.14);
+        background: #e2e8f0;
+        color: #111827;
+    }
+
+        .primary-button:hover:not(:disabled) {
+            background: #f8fafc;
+        }
+
+        .primary-button:disabled {
+            cursor: not-allowed;
+            opacity: .35;
+        }
+
+    .secondary-button {
+        border: 1px solid rgba(148,163,184,.10);
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+    }
+
+        .secondary-button:hover:not(:disabled) {
+            color: #cbd5e1;
+            background: rgba(255,255,255,.035);
+        }
+
+    .button-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(15,23,42,.22);
+        border-top-color: #0f172a;
+        border-radius: 9999px;
+        animation: supplierSpin .7s linear infinite;
+    }
+
+    @@keyframes supplierSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@media (max-width: 700px) {
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .full-field {
+            grid-column: auto;
+        }
+
+        .section-header {
+            flex-direction: column;
+        }
+    }
+
+</style>
+
+@code {
+
+    private string name = string.Empty;
+    private string taxId = string.Empty;
+    private string contactName = string.Empty;
+    private string email = string.Empty;
+    private string phone = string.Empty;
+
+    private bool isSubmitting;
+    private string? actionError;
+
+
+    private bool CanSubmit =>
+        AuthState.IsAdministrator
+        && !isSubmitting
+        && !string.IsNullOrWhiteSpace(name)
+        && (
+            string.IsNullOrWhiteSpace(email)
+            || IsValidEmail(email)
+        );
+
+
+    private string PreviewName =>
+        string.IsNullOrWhiteSpace(name)
+            ? "Nombre del proveedor"
+            : name.Trim();
+
+
+    private string PreviewInitial =>
+        string.IsNullOrWhiteSpace(name)
+            ? "P"
+            : name.Trim()[..1].ToUpperInvariant();
+
+
+    private async Task CreateSupplier()
+    {
+        if (!CanSubmit)
+            return;
+
+        try
+        {
+            isSubmitting = true;
+            actionError = null;
+
+            var request =
+                new CreateSupplierRequest
+                {
+                    Name = name.Trim(),
+                    TaxId = Normalize(taxId),
+                    ContactName = Normalize(contactName),
+                    Email = Normalize(email),
+                    Phone = Normalize(phone)
+                };
+
+            var supplierId =
+                await SupplierApiService.CreateAsync(request);
+
+            Navigation.NavigateTo(
+                $"/suppliers/{supplierId}/services/manage");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Navigation.NavigateTo(
+                "/",
+                replace: true);
+        }
+        catch (Exception ex)
+        {
+            actionError = ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/suppliers");
+    }
+
+
+    private static string? Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
+    }
+
+
+    private static string DisplayValue(
+        string? value,
+        string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : value.Trim();
+    }
+
+
+    private static bool IsValidEmail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        try
+        {
+            var trimmed = value.Trim();
+
+            var address =
+                new System.Net.Mail.MailAddress(trimmed);
+
+            return string.Equals(
+                address.Address,
+                trimmed,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+}

@@ -1,0 +1,883 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+@page "/assets/{Id:int}/return"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+
+@inject AssetApiService AssetApiService
+@inject NavigationManager Navigation
+
+<PageTitle>Devolver activo | Quom</PageTitle>
+
+<div class="return-page">
+
+    <button class="back-link"
+            @onclick="GoBack">
+
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.7"
+             class="h-4 w-4">
+
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+
+        <span>Volver a activos</span>
+
+    </button>
+
+
+    <div class="mt-6">
+
+        <p class="text-xs font-semibold uppercase
+            tracking-[0.24em] text-slate-500">
+            Operación
+        </p>
+
+        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Devolver activo
+        </h1>
+
+        <p class="mt-2 text-sm text-slate-500">
+            Registra la recepción y condición del activo asignado.
+        </p>
+
+    </div>
+
+
+    @if (isLoading)
+    {
+        <div class="mt-10 flex min-h-72 items-center justify-center">
+
+            <div class="text-center">
+
+                <div class="return-spinner mx-auto"></div>
+
+                <p class="mt-4 text-sm text-slate-500">
+                    Preparando devolución...
+                </p>
+
+            </div>
+
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="mt-8 rounded-xl border border-red-500/15
+            bg-red-500/[0.05] px-5 py-4">
+
+            <p class="text-sm font-medium text-red-300">
+                No fue posible preparar la operación
+            </p>
+
+            <p class="mt-1 text-sm text-red-400/70">
+                @loadError
+            </p>
+
+        </div>
+    }
+    else if (asset is not null)
+    {
+        <div class="mt-8 grid gap-6 xl:grid-cols-[360px_1fr]">
+
+            @* ACTIVO *@
+            <aside class="asset-card">
+
+                <p class="section-label">
+                    Activo seleccionado
+                </p>
+
+                <div class="mt-5 flex items-start gap-4">
+
+                    <div class="asset-icon">
+                        @GetAssetInitial()
+                    </div>
+
+                    <div>
+
+                        <p class="font-semibold text-slate-200">
+                            @asset.AssetCode
+                        </p>
+
+                        <p class="mt-1 text-sm text-slate-500">
+                            @asset.Brand @asset.Model
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="detail-list mt-6">
+
+                    <div class="detail-row">
+                        <span>Categoría</span>
+                        <strong>@asset.Category</strong>
+                    </div>
+
+                    <div class="detail-row">
+                        <span>Ubicación</span>
+
+                        <strong>
+                            @(string.IsNullOrWhiteSpace(asset.CurrentLocation)
+                                ? "Sin ubicación"
+                                : asset.CurrentLocation)
+                        </strong>
+                    </div>
+
+                    <div class="detail-row">
+                        <span>Estado actual</span>
+
+                        <strong class="@GetStatusClass()">
+                            @asset.Status
+                        </strong>
+                    </div>
+
+                    <div class="detail-row">
+                        <span>Propiedad</span>
+                        <strong>@asset.OwnershipType</strong>
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            @* FORMULARIO *@
+            <section>
+
+                @if (!CanReturn)
+                {
+                    <div class="rule-card rule-error">
+
+                        <div class="rule-symbol">
+                            !
+                        </div>
+
+                        <div>
+
+                            <p class="text-sm font-medium text-slate-200">
+                                Este activo no puede devolverse
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-slate-500">
+                                La devolución sólo puede registrarse cuando
+                                el activo se encuentra
+                                <span class="text-slate-300">
+                                    Asignado
+                                </span>.
+
+                                El estado actual es
+                                <span class="text-slate-300">
+                                    @asset.Status
+                                </span>.
+                            </p>
+
+                        </div>
+
+                    </div>
+                }
+                else
+                {
+                    <div class="rule-card">
+
+                        <div class="rule-symbol">
+                            i
+                        </div>
+
+                        <div>
+
+                            <p class="text-sm font-medium text-slate-300">
+                                Regla de negocio
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-slate-500">
+                                La condición de devolución es obligatoria.
+                                Al confirmar, la asignación activa se cerrará
+                                y el activo volverá automáticamente al estado
+                                <span class="text-slate-300">
+                                    Disponible
+                                </span>.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-card mt-5">
+
+                        <div>
+
+                            <label class="field-label">
+                                Condición de devolución
+                            </label>
+
+                            <select @bind="returnCondition"
+                                    class="field-control">
+
+                                <option value="">
+                                    Selecciona una condición
+                                </option>
+
+                                <option value="Buen estado">
+                                    Buen estado
+                                </option>
+
+                                <option value="Con desgaste">
+                                    Con desgaste
+                                </option>
+
+                                <option value="Requiere revisión">
+                                    Requiere revisión
+                                </option>
+
+                                <option value="Con daños">
+                                    Con daños
+                                </option>
+
+                            </select>
+
+                            <p class="mt-2 text-xs text-slate-700">
+                                Campo obligatorio
+                            </p>
+
+                        </div>
+
+
+                        @if (!string.IsNullOrWhiteSpace(returnCondition))
+                        {
+                            <div class="@GetConditionCardClass()">
+
+                                <div class="condition-dot"></div>
+
+                                <div>
+
+                                    <p class="text-sm font-medium text-slate-300">
+                                        @returnCondition
+                                    </p>
+
+                                    <p class="mt-1 text-xs leading-5 text-slate-600">
+                                        @GetConditionDescription()
+                                    </p>
+
+                                </div>
+
+                            </div>
+                        }
+
+
+                        <div class="mt-5">
+
+                            <label class="field-label">
+                                Observaciones
+                            </label>
+
+                            <textarea @bind="notes"
+                                      maxlength="500"
+                                      rows="5"
+                                      placeholder="Describe daños visibles, accesorios entregados o cualquier observación relevante..."
+                                      class="field-control resize-none">
+                            </textarea>
+
+                            <div class="mt-2 flex justify-between">
+
+                                <p class="text-xs text-slate-700">
+                                    Opcional
+                                </p>
+
+                                <p class="text-xs text-slate-700">
+                                    @notes.Length / 500
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        @if (returnCondition is "Requiere revisión" or "Con daños")
+                        {
+                            <div class="maintenance-hint">
+
+                                <div class="rule-symbol">
+                                    i
+                                </div>
+
+                                <div>
+
+                                    <p class="text-sm font-medium text-slate-300">
+                                        Seguimiento recomendado
+                                    </p>
+
+                                    <p class="mt-1 text-xs leading-5 text-slate-600">
+                                        La devolución cerrará la asignación.
+                                        Si el equipo no debe permanecer disponible,
+                                        posteriormente deberá actualizarse su estado
+                                        a Mantenimiento mediante el flujo correspondiente.
+                                    </p>
+
+                                </div>
+
+                            </div>
+                        }
+
+
+                        @if (!string.IsNullOrWhiteSpace(actionError))
+                        {
+                            <div class="mt-5 rounded-xl
+                                border border-red-500/15
+                                bg-red-500/[0.05]
+                                px-4 py-3">
+
+                                <p class="text-sm text-red-300">
+                                    @actionError
+                                </p>
+
+                            </div>
+                        }
+
+
+                        <div class="mt-7 flex flex-col-reverse gap-3
+                            sm:flex-row sm:justify-end">
+
+                            <button type="button"
+                                    class="secondary-button"
+                                    disabled="@isSubmitting"
+                                    @onclick="GoBack">
+                                Cancelar
+                            </button>
+
+                            <button type="button"
+                                    class="primary-button"
+                                    disabled="@(!CanSubmit)"
+                                    @onclick="ReturnAsset">
+
+                                @if (isSubmitting)
+                                {
+                                    <span class="button-spinner"></span>
+
+                                    <span>
+                                        Registrando...
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span>
+                                        Confirmar devolución
+                                    </span>
+                                }
+
+                            </button>
+
+                        </div>
+
+                    </div>
+                }
+
+            </section>
+
+        </div>
+    }
+
+</div>
+
+
+<style>
+
+    .return-page {
+        width: 100%;
+        max-width: 1280px;
+        margin-inline: auto;
+    }
+
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 13px;
+        transition: color .16s ease;
+    }
+
+
+        .back-link:hover {
+            color: #cbd5e1;
+        }
+
+
+    .section-label,
+    .field-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+
+    .asset-card,
+    .form-card {
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+
+    .asset-card {
+        align-self: start;
+        padding: 22px;
+    }
+
+
+    .form-card {
+        padding: 22px;
+    }
+
+
+    .asset-icon {
+        display: flex;
+        width: 46px;
+        height: 46px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 12px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+
+    .detail-list {
+        border-top: 1px solid rgba(255,255,255,.045);
+    }
+
+
+    .detail-row {
+        display: flex;
+        min-height: 46px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        border-bottom: 1px solid rgba(255,255,255,.04);
+        font-size: 12px;
+    }
+
+
+        .detail-row span {
+            color: #475569;
+        }
+
+
+        .detail-row strong {
+            color: #94a3b8;
+            font-weight: 500;
+            text-align: right;
+        }
+
+
+    .status-ok {
+        color: #93c5fd !important;
+    }
+
+
+    .status-blocked {
+        color: #fca5a5 !important;
+    }
+
+
+    .rule-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 16px 18px;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 14px;
+        background: rgba(255,255,255,.014);
+    }
+
+
+    .rule-error {
+        border-color: rgba(248,113,113,.11);
+        background: rgba(248,113,113,.025);
+    }
+
+
+    .rule-symbol {
+        display: flex;
+        width: 25px;
+        height: 25px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.13);
+        border-radius: 7px;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .field-control {
+        width: 100%;
+        margin-top: 9px;
+        padding: 12px 13px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 11px;
+        outline: none;
+        background: #0d1014;
+        color: #cbd5e1;
+        font-size: 13px;
+        transition: border-color .17s ease, background .17s ease;
+    }
+
+
+        .field-control:focus {
+            border-color: rgba(148,163,184,.30);
+            background: #0f1216;
+        }
+
+
+        .field-control::placeholder {
+            color: #334155;
+        }
+
+
+    .condition-preview,
+    .condition-warning,
+    .condition-danger {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border: 1px solid;
+        border-radius: 11px;
+    }
+
+
+    .condition-preview {
+        border-color: rgba(74,222,128,.09);
+        background: rgba(74,222,128,.025);
+    }
+
+
+    .condition-warning {
+        border-color: rgba(250,204,21,.09);
+        background: rgba(250,204,21,.022);
+    }
+
+
+    .condition-danger {
+        border-color: rgba(248,113,113,.10);
+        background: rgba(248,113,113,.025);
+    }
+
+
+    .condition-dot {
+        width: 6px;
+        height: 6px;
+        flex-shrink: 0;
+        margin-top: 6px;
+        border-radius: 9999px;
+        background: #94a3b8;
+    }
+
+
+    .condition-preview .condition-dot {
+        background: #86efac;
+    }
+
+
+    .condition-warning .condition-dot {
+        background: #fde68a;
+    }
+
+
+    .condition-danger .condition-dot {
+        background: #fca5a5;
+    }
+
+
+    .maintenance-hint {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 18px;
+        padding: 13px 14px;
+        border: 1px solid rgba(250,204,21,.07);
+        border-radius: 11px;
+        background: rgba(250,204,21,.015);
+    }
+
+
+    .primary-button,
+    .secondary-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .17s ease, border-color .17s ease, opacity .17s ease;
+    }
+
+
+    .primary-button {
+        border: 1px solid rgba(255,255,255,.14);
+        background: #e2e8f0;
+        color: #111827;
+    }
+
+
+        .primary-button:hover:not(:disabled) {
+            background: #f1f5f9;
+        }
+
+
+        .primary-button:disabled {
+            cursor: not-allowed;
+            opacity: .35;
+        }
+
+
+    .secondary-button {
+        border: 1px solid rgba(148,163,184,.10);
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+    }
+
+
+        .secondary-button:hover:not(:disabled) {
+            color: #cbd5e1;
+            background: rgba(255,255,255,.035);
+        }
+
+
+    .return-spinner,
+    .button-spinner {
+        border: 2px solid rgba(148,163,184,.12);
+        border-top-color: #94a3b8;
+        border-radius: 9999px;
+        animation: returnSpin .7s linear infinite;
+    }
+
+
+    .return-spinner {
+        width: 26px;
+        height: 26px;
+    }
+
+
+    .button-spinner {
+        width: 14px;
+        height: 14px;
+        border-color: rgba(15,23,42,.22);
+        border-top-color: #0f172a;
+    }
+
+
+    @@keyframes returnSpin {
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+</style>
+
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+
+    private AssetModel? asset;
+
+
+    private string returnCondition =
+        string.Empty;
+
+    private string notes =
+        string.Empty;
+
+
+    private bool isLoading = true;
+
+    private bool isSubmitting;
+
+
+    private string? loadError;
+
+    private string? actionError;
+
+
+    private bool CanReturn =>
+        asset?.Status == "Asignado";
+
+
+    private bool CanSubmit =>
+        CanReturn
+        && !string.IsNullOrWhiteSpace(returnCondition)
+        && !isSubmitting;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAssetAsync();
+    }
+
+
+    private async Task LoadAssetAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            asset =
+                await AssetApiService.GetByIdAsync(Id);
+
+            if (asset is null)
+            {
+                loadError =
+                    "El activo solicitado no existe.";
+            }
+        }
+        catch (Exception ex)
+        {
+            loadError =
+                ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private async Task ReturnAsset()
+    {
+        if (!CanSubmit)
+            return;
+
+        try
+        {
+            isSubmitting = true;
+
+            actionError = null;
+
+            var request =
+                new ReturnAssetRequest
+                {
+                    ReturnCondition =
+                        returnCondition.Trim(),
+
+                    Notes =
+                        string.IsNullOrWhiteSpace(notes)
+                            ? null
+                            : notes.Trim()
+                };
+
+            await AssetApiService.ReturnAsync(
+                Id,
+                request);
+
+            Navigation.NavigateTo(
+                $"/assets/{Id}/history");
+        }
+        catch (Exception ex)
+        {
+            actionError =
+                ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(
+            "/assets");
+    }
+
+
+    private string GetAssetInitial()
+    {
+        if (string.IsNullOrWhiteSpace(
+            asset?.Category))
+        {
+            return "A";
+        }
+
+        return asset.Category[..1]
+            .ToUpperInvariant();
+    }
+
+
+    private string GetStatusClass()
+    {
+        return CanReturn
+            ? "status-ok"
+            : "status-blocked";
+    }
+
+
+    private string GetConditionCardClass()
+    {
+        return returnCondition switch
+        {
+            "Buen estado" =>
+                "condition-preview",
+
+            "Con desgaste" =>
+                "condition-warning",
+
+            "Requiere revisión" =>
+                "condition-warning",
+
+            "Con daños" =>
+                "condition-danger",
+
+            _ =>
+                "condition-preview"
+        };
+    }
+
+
+    private string GetConditionDescription()
+    {
+        return returnCondition switch
+        {
+            "Buen estado" =>
+                "El equipo se recibe sin daños o incidencias relevantes.",
+
+            "Con desgaste" =>
+                "El activo presenta desgaste derivado de su uso habitual.",
+
+            "Requiere revisión" =>
+                "Se recomienda una revisión antes de una nueva asignación.",
+
+            "Con daños" =>
+                "El activo presenta daños que requieren seguimiento.",
+
+            _ =>
+                string.Empty
+        };
+    }
+
+}

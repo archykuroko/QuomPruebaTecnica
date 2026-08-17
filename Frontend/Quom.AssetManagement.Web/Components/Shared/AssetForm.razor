@@ -1,0 +1,411 @@
+﻿@using Quom.AssetManagement.Web.Models
+
+<div class="asset-form">
+
+    <div class="grid gap-6 md:grid-cols-2">
+
+        <div>
+            <label class="asset-label">
+                Código del activo
+            </label>
+
+            <input class="asset-input"
+                   @bind="Model.AssetCode"
+                   disabled="@IsEditMode"
+                   placeholder="Ej. TI-000013" />
+
+            @if (IsEditMode)
+            {
+                <p class="asset-help">
+                    El código identifica al activo y no puede modificarse desde esta operación.
+                </p>
+            }
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Número de serie
+            </label>
+
+            <input class="asset-input"
+                   @bind="Model.SerialNumber"
+                   placeholder="Número de serie" />
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Categoría
+            </label>
+
+            <input class="asset-input"
+                   @bind="Model.Category"
+                   placeholder="Ej. Laptop" />
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Marca
+            </label>
+
+            <input class="asset-input"
+                   @bind="Model.Brand"
+                   placeholder="Ej. Dell" />
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Modelo
+            </label>
+
+            <input class="asset-input"
+                   @bind="Model.Model"
+                   placeholder="Ej. Latitude 5440" />
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Ubicación actual
+            </label>
+
+            <input class="asset-input"
+                   @bind="Model.CurrentLocation"
+                   placeholder="Ej. Almacén TI" />
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Fecha de compra
+            </label>
+
+            <input type="date"
+                   class="asset-input"
+                   @bind="Model.PurchaseDate" />
+        </div>
+
+        <div>
+            <label class="asset-label">
+                Tipo de propiedad
+            </label>
+
+            <select class="asset-input"
+                    @bind="Model.OwnershipType">
+
+                <option value="Propio">
+                    Propio
+                </option>
+
+                <option value="Arrendado">
+                    Arrendado
+                </option>
+
+            </select>
+        </div>
+
+    </div>
+
+
+    @* ======================================================
+       REGLAS PARA ACTIVOS ARRENDADOS
+       ====================================================== *@
+
+    @if (Model.OwnershipType == "Arrendado")
+    {
+        <div class="business-rule mt-7">
+
+            <div class="business-rule-icon">
+                i
+            </div>
+
+            <div>
+
+                <p class="business-rule-title">
+                    Activo arrendado
+                </p>
+
+                <p class="business-rule-text">
+                    Los activos arrendados requieren proveedor y
+                    fecha de término del arrendamiento.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+
+            <div>
+
+                <label class="asset-label">
+                    Proveedor
+                </label>
+
+                <select class="asset-input"
+                        @bind="Model.SupplierId">
+
+                    <option value="">
+                        Selecciona un proveedor
+                    </option>
+
+                    @foreach (var supplier in Suppliers)
+                    {
+                        <option value="@supplier.Id">
+                            @supplier.Name
+                        </option>
+                    }
+
+                </select>
+
+                @if (Suppliers.Count == 0)
+                {
+                    <p class="asset-help asset-warning">
+                        No existen proveedores activos disponibles.
+                    </p>
+                }
+
+            </div>
+
+
+            <div>
+
+                <label class="asset-label">
+                    Fin de arrendamiento
+                </label>
+
+                <input type="date"
+                       class="asset-input"
+                       @bind="Model.RentalEndDate" />
+
+            </div>
+
+        </div>
+    }
+
+
+    @* ======================================================
+       ESTADO - SÓLO EDICIÓN
+       ====================================================== *@
+
+    @if (IsEditMode)
+    {
+        <div class="section-divider"></div>
+
+        <div>
+
+            <label class="asset-label">
+                Estado
+            </label>
+
+            <select class="asset-input"
+                    @bind="Model.Status">
+
+                <option value="Disponible">
+                    Disponible
+                </option>
+
+                <option value="Mantenimiento">
+                    Mantenimiento
+                </option>
+
+                <option value="Retirado">
+                    Retirado
+                </option>
+
+            </select>
+
+            <div class="state-rule">
+
+                <div class="state-rule-icon">
+                    i
+                </div>
+
+                <p>
+                    El estado
+                    <strong>Asignado</strong>
+                    no puede establecerse manualmente.
+                    Debe generarse mediante el proceso de asignación.
+                </p>
+
+            </div>
+
+        </div>
+    }
+
+</div>
+
+
+<style>
+
+    .asset-form {
+        width: 100%;
+    }
+
+
+    /* ======================================================
+           LABELS
+           ====================================================== */
+
+    .asset-label {
+        display: block;
+        margin-bottom: 9px;
+        color: #cbd5e1;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+
+    /* ======================================================
+           INPUTS
+           ====================================================== */
+
+    .asset-input {
+        width: 100%;
+        min-height: 48px;
+        padding: 0 15px;
+        border: 1px solid rgba(148, 163, 184, .14);
+        border-radius: 11px;
+        outline: none;
+        background: rgba(0, 0, 0, .18);
+        color: #e5e7eb;
+        font-size: 14px;
+        transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+
+
+        .asset-input:focus {
+            border-color: rgba(203, 213, 225, .30);
+            background: rgba(255, 255, 255, .018);
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, .035);
+        }
+
+
+        .asset-input:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+            background: rgba(255,255,255,.012);
+        }
+
+
+        .asset-input::placeholder {
+            color: #334155;
+        }
+
+
+    /* ======================================================
+           AYUDA
+           ====================================================== */
+
+    .asset-help {
+        margin-top: 8px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+
+    .asset-warning {
+        color: rgba(253, 230, 138, .65);
+    }
+
+
+    /* ======================================================
+           REGLA ARRENDAMIENTO
+           ====================================================== */
+
+    .business-rule {
+        display: flex;
+        align-items: flex-start;
+        gap: 13px;
+        padding: 17px 18px;
+        border: 1px solid rgba(148, 163, 184, .10);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, .018);
+    }
+
+
+    .business-rule-icon,
+    .state-rule-icon {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.14);
+        border-radius: 7px;
+        background: rgba(255,255,255,.018);
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .business-rule-title {
+        color: #cbd5e1;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+
+    .business-rule-text {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+
+    /* ======================================================
+           DIVISOR
+           ====================================================== */
+
+    .section-divider {
+        width: 100%;
+        height: 1px;
+        margin: 28px 0;
+        background: rgba(255,255,255,.045);
+    }
+
+
+    /* ======================================================
+           REGLA DE ESTADO
+           ====================================================== */
+
+    .state-rule {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        margin-top: 13px;
+        padding: 12px 14px;
+        border: 1px solid rgba(148,163,184,.07);
+        border-radius: 10px;
+        background: rgba(255,255,255,.012);
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+
+        .state-rule strong {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+</style>
+
+
+@code {
+
+    [Parameter, EditorRequired]
+    public AssetFormModel Model { get; set; } = default!;
+
+
+    [Parameter]
+    public IReadOnlyList<SupplierOption> Suppliers { get; set; }
+        = Array.Empty<SupplierOption>();
+
+
+    [Parameter]
+    public bool IsEditMode { get; set; }
+
+}

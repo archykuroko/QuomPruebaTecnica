@@ -1,0 +1,778 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+
+@page "/assets/{Id:int}/edit"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+@using Quom.AssetManagement.Web.Models
+
+@inject AssetApiService AssetApiService
+@inject SupplierApiService SupplierApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Editar activo | Quom</PageTitle>
+
+<div class="edit-page">
+
+    <button class="back-link"
+            @onclick="GoBack">
+
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.7"
+             class="h-4 w-4">
+
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+
+        </svg>
+
+        <span>Volver a activos</span>
+
+    </button>
+
+    <div class="mt-6">
+
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Administración
+        </p>
+
+        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Editar activo
+        </h1>
+
+        <p class="mt-2 text-sm text-slate-500">
+            Actualiza la información administrativa del activo seleccionado.
+        </p>
+
+    </div>
+
+    @if (!AuthState.IsAdministrator)
+    {
+        <div class="message-card message-error mt-8">
+            Esta operación sólo está disponible para usuarios Administrador.
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="mt-10 flex min-h-72 items-center justify-center">
+
+            <div class="text-center">
+
+                <div class="edit-spinner mx-auto"></div>
+
+                <p class="mt-4 text-sm text-slate-500">
+                    Cargando información del activo...
+                </p>
+
+            </div>
+
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="message-card message-error mt-8">
+            @loadError
+        </div>
+    }
+    else if (formModel is not null)
+    {
+        <div class="mt-8 grid gap-6 xl:grid-cols-[1fr_320px]">
+
+            <section class="form-card">
+
+                <div class="flex items-start justify-between gap-6">
+
+                    <div>
+
+                        <p class="section-label">
+                            Información del activo
+                        </p>
+
+                        <p class="mt-2 text-sm text-slate-500">
+                            Modifica únicamente los datos que requieran actualización.
+                        </p>
+
+                    </div>
+
+                    <span class="@GetCurrentStatusClass()">
+                        @formModel.Status
+                    </span>
+
+                </div>
+
+                <div class="mt-7">
+
+                    <AssetForm Model="formModel"
+                               Suppliers="supplierOptions"
+                               IsEditMode="true" />
+
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(actionError))
+                {
+                    <div class="message-card message-error mt-6">
+                        @actionError
+                    </div>
+                }
+
+                <div class="mt-8 flex flex-col-reverse gap-3
+                            sm:flex-row sm:justify-end">
+
+                    <button type="button"
+                            class="secondary-button"
+                            disabled="@isSubmitting"
+                            @onclick="GoBack">
+
+                        Cancelar
+
+                    </button>
+
+                    <button type="button"
+                            class="primary-button"
+                            disabled="@(!CanSubmit)"
+                            @onclick="SaveChanges">
+
+                        @if (isSubmitting)
+                        {
+                            <span class="button-spinner"></span>
+                            <span>Guardando...</span>
+                        }
+                        else
+                        {
+                            <span>Guardar cambios</span>
+                        }
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <aside class="rules-column">
+
+                <div class="rules-card">
+
+                    <p class="section-label">
+                        Reglas de edición
+                    </p>
+
+                    <div class="rule-list mt-5">
+
+                        <div class="rule-item">
+
+                            <span class="rule-check">✓</span>
+
+                            <p>
+                                El estado Asignado no puede establecerse manualmente.
+                            </p>
+
+                        </div>
+
+                        <div class="rule-item">
+
+                            <span class="rule-check">✓</span>
+
+                            <p>
+                                Los activos arrendados requieren proveedor y fecha de término.
+                            </p>
+
+                        </div>
+
+                        <div class="rule-item">
+
+                            <span class="rule-check">✓</span>
+
+                            <p>
+                                Los activos retirados no pueden volver a activarse.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="rules-card">
+
+                    <p class="section-label">
+                        Activo actual
+                    </p>
+
+                    <div class="summary-list mt-5">
+
+                        <div>
+                            <span>Código</span>
+                            <strong>@formModel.AssetCode</strong>
+                        </div>
+
+                        <div>
+                            <span>Estado</span>
+                            <strong>@formModel.Status</strong>
+                        </div>
+
+                        <div>
+                            <span>Propiedad</span>
+                            <strong>@formModel.OwnershipType</strong>
+                        </div>
+
+                        <div>
+                            <span>Ubicación</span>
+                            <strong>
+                                @(string.IsNullOrWhiteSpace(formModel.CurrentLocation)
+                                    ? "Sin ubicación"
+                                    : formModel.CurrentLocation)
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </aside>
+
+        </div>
+    }
+
+</div>
+
+<style>
+
+    .edit-page {
+        width: 100%;
+        max-width: 1320px;
+        margin-inline: auto;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+
+        color: #64748b;
+        font-size: 13px;
+
+        transition: color .16s ease;
+    }
+
+    .back-link:hover {
+        color: #cbd5e1;
+    }
+
+    .form-card,
+    .rules-card {
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(255,255,255,.022),
+                rgba(255,255,255,.007)
+            );
+    }
+
+    .form-card {
+        padding: 24px;
+    }
+
+    .rules-card {
+        padding: 20px;
+    }
+
+    .rules-column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+
+        align-self: start;
+    }
+
+    .section-label {
+        color: #475569;
+
+        font-size: 10px;
+        font-weight: 700;
+
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+    .rule-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .rule-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+
+        color: #64748b;
+
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .rule-check {
+        color: #86efac;
+
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .summary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+    }
+
+    .summary-list > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+
+        padding-bottom: 12px;
+
+        border-bottom: 1px solid rgba(255,255,255,.035);
+
+        font-size: 11px;
+    }
+
+    .summary-list span {
+        color: #475569;
+    }
+
+    .summary-list strong {
+        color: #94a3b8;
+
+        font-weight: 500;
+
+        text-align: right;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+
+        padding: 6px 9px;
+
+        border: 1px solid;
+        border-radius: 9999px;
+
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .status-available {
+        border-color: rgba(74,222,128,.13);
+        background: rgba(74,222,128,.055);
+        color: #86efac;
+    }
+
+    .status-maintenance {
+        border-color: rgba(250,204,21,.13);
+        background: rgba(250,204,21,.045);
+        color: #fde68a;
+    }
+
+    .status-retired {
+        border-color: rgba(148,163,184,.10);
+        background: rgba(148,163,184,.035);
+        color: #64748b;
+    }
+
+    .message-card {
+        padding: 13px 15px;
+
+        border-radius: 11px;
+
+        font-size: 13px;
+    }
+
+    .message-error {
+        border: 1px solid rgba(248,113,113,.12);
+
+        background: rgba(248,113,113,.035);
+
+        color: #fca5a5;
+    }
+
+    .primary-button,
+    .secondary-button {
+        display: inline-flex;
+
+        min-height: 42px;
+
+        align-items: center;
+        justify-content: center;
+
+        gap: 8px;
+
+        padding: 0 17px;
+
+        border-radius: 10px;
+
+        font-size: 13px;
+        font-weight: 600;
+
+        transition:
+            background .17s ease,
+            opacity .17s ease;
+    }
+
+    .primary-button {
+        border: 1px solid rgba(255,255,255,.14);
+
+        background: #e2e8f0;
+
+        color: #111827;
+    }
+
+    .primary-button:hover:not(:disabled) {
+        background: #f8fafc;
+    }
+
+    .primary-button:disabled {
+        cursor: not-allowed;
+        opacity: .35;
+    }
+
+    .secondary-button {
+        border: 1px solid rgba(148,163,184,.10);
+
+        background: rgba(255,255,255,.015);
+
+        color: #64748b;
+    }
+
+    .secondary-button:hover:not(:disabled) {
+        color: #cbd5e1;
+
+        background: rgba(255,255,255,.035);
+    }
+
+    .edit-spinner,
+    .button-spinner {
+        border: 2px solid rgba(148,163,184,.12);
+        border-top-color: #94a3b8;
+
+        border-radius: 9999px;
+
+        animation: editSpin .7s linear infinite;
+    }
+
+    .edit-spinner {
+        width: 26px;
+        height: 26px;
+    }
+
+    .button-spinner {
+        width: 14px;
+        height: 14px;
+
+        border-color: rgba(15,23,42,.22);
+        border-top-color: #0f172a;
+    }
+
+    @@keyframes editSpin {
+
+        to {
+            transform: rotate(360deg);
+        }
+
+    }
+
+</style>
+
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+
+    private AssetFormModel? formModel;
+
+    private List<SupplierOption> supplierOptions = [];
+
+
+    private bool isLoading = true;
+
+    private bool isSubmitting;
+
+
+    private string? loadError;
+
+    private string? actionError;
+
+
+    private bool CanSubmit =>
+        AuthState.IsAdministrator
+        && formModel is not null
+        && !isSubmitting
+        && !string.IsNullOrWhiteSpace(formModel.AssetCode)
+        && !string.IsNullOrWhiteSpace(formModel.Category)
+        && !string.IsNullOrWhiteSpace(formModel.Brand)
+        && !string.IsNullOrWhiteSpace(formModel.OwnershipType)
+        && formModel.Status is
+            "Disponible"
+            or "Mantenimiento"
+            or "Retirado"
+        && (
+            formModel.OwnershipType != "Arrendado"
+            ||
+            (
+                formModel.SupplierId.HasValue
+                && formModel.RentalEndDate.HasValue
+            )
+        );
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            if (!AuthState.IsAdministrator)
+                return;
+
+
+            var asset =
+                await AssetApiService.GetByIdAsync(Id);
+
+
+            if (asset is null)
+            {
+                loadError =
+                    "El activo solicitado no existe.";
+
+                return;
+            }
+
+
+            // =================================================
+            // PRECARGA DEL FORMULARIO
+            // =================================================
+
+            formModel =
+                new AssetFormModel
+                {
+                    Id =
+                        asset.Id,
+
+                    AssetCode =
+                        asset.AssetCode,
+
+                    SerialNumber =
+                        asset.SerialNumber
+                        ?? string.Empty,
+
+                    // NUEVO
+                    Category =
+                        asset.Category,
+
+                    Brand =
+                        asset.Brand,
+
+                    Model =
+                        asset.Model
+                        ?? string.Empty,
+
+                    OwnershipType =
+                        asset.OwnershipType,
+
+                    Status =
+                        asset.Status,
+
+                    CurrentLocation =
+                        asset.CurrentLocation
+                        ?? string.Empty,
+
+                    SupplierId =
+                        asset.SupplierId,
+
+                    // NUEVO
+                    PurchaseDate =
+                        asset.PurchaseDate,
+
+                    RentalEndDate =
+                        asset.RentalEndDate
+                };
+
+
+            // =================================================
+            // CATÁLOGO DE PROVEEDORES
+            // =================================================
+
+            var suppliers =
+                await SupplierApiService.GetAllAsync();
+
+
+            supplierOptions =
+                suppliers
+                    .Where(
+                        supplier =>
+                            supplier.IsActive)
+                    .OrderBy(
+                        supplier =>
+                            supplier.Name)
+                    .Select(
+                        supplier =>
+                            new SupplierOption
+                            {
+                                Id =
+                                    supplier.Id,
+
+                                Name =
+                                    supplier.Name
+                            })
+                    .ToList();
+        }
+        catch (Exception ex)
+        {
+            loadError =
+                ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private async Task SaveChanges()
+    {
+        if (!CanSubmit ||
+            formModel is null)
+        {
+            return;
+        }
+
+
+        try
+        {
+            isSubmitting = true;
+
+            actionError = null;
+
+
+            // =================================================
+            // REQUEST PARA PUT /api/assets/{id}
+            // =================================================
+
+            var request =
+                 new UpdateAssetRequest
+                 {
+                     AssetCode =
+                         formModel.AssetCode.Trim(),
+
+                     SerialNumber =
+                         string.IsNullOrWhiteSpace(formModel.SerialNumber)
+                             ? null
+                             : formModel.SerialNumber.Trim(),
+
+                     Category =
+                         formModel.Category.Trim(),
+
+                     Brand =
+                         formModel.Brand.Trim(),
+
+                     Model =
+                         string.IsNullOrWhiteSpace(formModel.Model)
+                             ? null
+                             : formModel.Model.Trim(),
+
+                     OwnershipType =
+                         formModel.OwnershipType,
+
+                     SupplierId =
+                         formModel.OwnershipType == "Arrendado"
+                             ? formModel.SupplierId
+                             : null,
+
+                     Status =
+                         formModel.Status,
+
+                     CurrentLocation =
+                         string.IsNullOrWhiteSpace(formModel.CurrentLocation)
+                             ? null
+                             : formModel.CurrentLocation.Trim(),
+
+                     PurchaseDate =
+                         formModel.PurchaseDate,
+
+                     RentalEndDate =
+                         formModel.OwnershipType == "Arrendado"
+                             ? formModel.RentalEndDate
+                             : null
+                 };
+
+
+            await AssetApiService.UpdateAsync(
+                Id,
+                request);
+
+
+            Navigation.NavigateTo(
+                $"/assets/{Id}/history");
+        }
+        catch (Exception ex)
+        {
+            actionError =
+                ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(
+            "/assets");
+    }
+
+
+    private string GetCurrentStatusClass()
+    {
+        if (formModel is null)
+        {
+            return
+                "status-badge status-retired";
+        }
+
+
+        return formModel.Status switch
+        {
+            "Disponible" =>
+                "status-badge status-available",
+
+            "Mantenimiento" =>
+                "status-badge status-maintenance",
+
+            "Retirado" =>
+                "status-badge status-retired",
+
+            _ =>
+                "status-badge status-retired"
+        };
+    }
+
+}

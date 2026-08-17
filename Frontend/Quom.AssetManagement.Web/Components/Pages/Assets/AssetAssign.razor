@@ -1,0 +1,814 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+@page "/assets/{Id:int}/assign"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+
+@inject AssetApiService AssetApiService
+@inject EmployeeApiService EmployeeApiService
+@inject NavigationManager Navigation
+
+<PageTitle>Asignar activo | Quom</PageTitle>
+
+<div class="assign-page">
+
+    <button class="back-link"
+            @onclick="GoBack">
+
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.7"
+             class="h-4 w-4">
+
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+
+        <span>Volver a activos</span>
+
+    </button>
+
+
+    <div class="mt-6">
+
+        <p class="text-xs font-semibold uppercase
+            tracking-[0.24em] text-slate-500">
+            Operación
+        </p>
+
+        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Asignar activo
+        </h1>
+
+        <p class="mt-2 text-sm text-slate-500">
+            Registra la entrega de un activo a un colaborador.
+        </p>
+
+    </div>
+
+
+    @if (isLoading)
+    {
+        <div class="mt-10 flex min-h-72 items-center justify-center">
+
+            <div class="text-center">
+
+                <div class="assign-spinner mx-auto"></div>
+
+                <p class="mt-4 text-sm text-slate-500">
+                    Preparando asignación...
+                </p>
+
+            </div>
+
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="mt-8 rounded-xl border border-red-500/15
+            bg-red-500/[0.05] px-5 py-4">
+
+            <p class="text-sm font-medium text-red-300">
+                No fue posible preparar la operación
+            </p>
+
+            <p class="mt-1 text-sm text-red-400/70">
+                @loadError
+            </p>
+
+        </div>
+    }
+    else if (asset is not null)
+    {
+        <div class="mt-8 grid gap-6 xl:grid-cols-[360px_1fr]">
+
+            @* =====================================================
+               ACTIVO
+               ===================================================== *@
+
+            <aside class="asset-card">
+
+                <p class="section-label">
+                    Activo seleccionado
+                </p>
+
+                <div class="mt-5 flex items-start gap-4">
+
+                    <div class="asset-icon">
+                        @GetAssetInitial()
+                    </div>
+
+                    <div>
+
+                        <p class="font-semibold text-slate-200">
+                            @asset.AssetCode
+                        </p>
+
+                        <p class="mt-1 text-sm text-slate-500">
+                            @asset.Brand @asset.Model
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="detail-list mt-6">
+
+                    <div class="detail-row">
+                        <span>Categoría</span>
+                        <strong>@asset.Category</strong>
+                    </div>
+
+                    <div class="detail-row">
+                        <span>Ubicación</span>
+
+                        <strong>
+                            @(string.IsNullOrWhiteSpace(asset.CurrentLocation)
+                                ? "Sin ubicación"
+                                : asset.CurrentLocation)
+                        </strong>
+                    </div>
+
+                    <div class="detail-row">
+                        <span>Estado</span>
+
+                        <strong class="@GetStatusTextClass()">
+                            @asset.Status
+                        </strong>
+                    </div>
+
+                    <div class="detail-row">
+                        <span>Propiedad</span>
+                        <strong>@asset.OwnershipType</strong>
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            @* =====================================================
+               FORMULARIO
+               ===================================================== *@
+
+            <section>
+
+                @if (!CanAssign)
+                {
+                    <div class="rule-card rule-error">
+
+                        <div class="rule-symbol">
+                            !
+                        </div>
+
+                        <div>
+                            <p class="text-sm font-medium text-slate-200">
+                                Este activo no puede asignarse
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-slate-500">
+                                Sólo los activos con estado
+                                <span class="text-slate-300">Disponible</span>
+                                pueden entrar al proceso de asignación.
+                                El estado actual es
+                                <span class="text-slate-300">@asset.Status</span>.
+                            </p>
+                        </div>
+
+                    </div>
+                }
+                else
+                {
+                    <div class="rule-card">
+
+                        <div class="rule-symbol">
+                            i
+                        </div>
+
+                        <div>
+                            <p class="text-sm font-medium text-slate-300">
+                                Regla de negocio
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-slate-500">
+                                Sólo se muestran colaboradores activos.
+                                Al confirmar la operación, el estado del activo
+                                cambiará automáticamente de
+                                <span class="text-slate-300">
+                                    Disponible
+                                </span>
+                                a
+                                <span class="text-slate-300">
+                                    Asignado
+                                </span>.
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-card mt-5">
+
+                        <div>
+
+                            <label class="field-label">
+                                Colaborador
+                            </label>
+
+                            <select @bind="employeeId"
+                                    class="field-control">
+
+                                <option value="0">
+                                    Selecciona un colaborador
+                                </option>
+
+                                @foreach (var employee in activeEmployees)
+                                {
+                                    <option value="@employee.Id">
+                                        @employee.EmployeeNumber ·
+                                        @employee.FullName
+                                    </option>
+                                }
+
+                            </select>
+
+                            @if (activeEmployees.Count == 0)
+                            {
+                                <p class="mt-2 text-xs text-amber-300/70">
+                                    No existen colaboradores activos disponibles.
+                                </p>
+                            }
+
+                        </div>
+
+
+                        @if (SelectedEmployee is not null)
+                        {
+                            <div class="employee-preview">
+
+                                <div class="employee-avatar">
+                                    @GetEmployeeInitials(SelectedEmployee)
+                                </div>
+
+                                <div>
+
+                                    <p class="text-sm font-medium text-slate-300">
+                                        @SelectedEmployee.FullName
+                                    </p>
+
+                                    <p class="mt-1 text-xs text-slate-600">
+                                        @SelectedEmployee.EmployeeNumber
+
+                                        @if (!string.IsNullOrWhiteSpace(
+                                            SelectedEmployee.Department))
+                                        {
+                                            <span>
+                                                · @SelectedEmployee.Department
+                                            </span>
+                                        }
+                                    </p>
+
+                                </div>
+
+                            </div>
+                        }
+
+
+                        <div class="mt-5">
+
+                            <label class="field-label">
+                                Observaciones
+                            </label>
+
+                            <textarea @bind="notes"
+                                      maxlength="500"
+                                      rows="5"
+                                      placeholder="Motivo, ubicación de entrega u observaciones de la asignación..."
+                                      class="field-control resize-none">
+                            </textarea>
+
+                            <div class="mt-2 flex justify-between">
+
+                                <p class="text-xs text-slate-700">
+                                    Opcional
+                                </p>
+
+                                <p class="text-xs text-slate-700">
+                                    @notes.Length / 500
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        @if (!string.IsNullOrWhiteSpace(actionError))
+                        {
+                            <div class="mt-5 rounded-xl
+                                border border-red-500/15
+                                bg-red-500/[0.05]
+                                px-4 py-3">
+
+                                <p class="text-sm text-red-300">
+                                    @actionError
+                                </p>
+
+                            </div>
+                        }
+
+
+                        <div class="mt-7 flex flex-col-reverse gap-3
+                            sm:flex-row sm:justify-end">
+
+                            <button type="button"
+                                    class="secondary-button"
+                                    disabled="@isSubmitting"
+                                    @onclick="GoBack">
+                                Cancelar
+                            </button>
+
+                            <button type="button"
+                                    class="primary-button"
+                                    disabled="@(!CanSubmit)"
+                                    @onclick="AssignAsset">
+
+                                @if (isSubmitting)
+                                {
+                                    <span class="button-spinner"></span>
+                                    <span>Asignando...</span>
+                                }
+                                else
+                                {
+                                    <span>Confirmar asignación</span>
+                                }
+
+                            </button>
+
+                        </div>
+
+                    </div>
+                }
+
+            </section>
+
+        </div>
+    }
+
+</div>
+
+
+<style>
+
+    .assign-page {
+        width: 100%;
+        max-width: 1280px;
+        margin-inline: auto;
+    }
+
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 13px;
+        transition: color .16s ease;
+    }
+
+
+        .back-link:hover {
+            color: #cbd5e1;
+        }
+
+
+    .section-label,
+    .field-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+
+    .asset-card,
+    .form-card {
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+
+    .asset-card {
+        align-self: start;
+        padding: 22px;
+    }
+
+
+    .form-card {
+        padding: 22px;
+    }
+
+
+    .asset-icon {
+        display: flex;
+        width: 46px;
+        height: 46px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 12px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+
+    .detail-list {
+        border-top: 1px solid rgba(255,255,255,.045);
+    }
+
+
+    .detail-row {
+        display: flex;
+        min-height: 46px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        border-bottom: 1px solid rgba(255,255,255,.04);
+        font-size: 12px;
+    }
+
+
+        .detail-row span {
+            color: #475569;
+        }
+
+
+        .detail-row strong {
+            color: #94a3b8;
+            font-weight: 500;
+            text-align: right;
+        }
+
+
+    .status-ok {
+        color: #86efac !important;
+    }
+
+
+    .status-blocked {
+        color: #fca5a5 !important;
+    }
+
+
+    .rule-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 16px 18px;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 14px;
+        background: rgba(255,255,255,.014);
+    }
+
+
+    .rule-error {
+        border-color: rgba(248,113,113,.11);
+        background: rgba(248,113,113,.025);
+    }
+
+
+    .rule-symbol {
+        display: flex;
+        width: 25px;
+        height: 25px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.13);
+        border-radius: 7px;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .field-control {
+        width: 100%;
+        margin-top: 9px;
+        padding: 12px 13px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 11px;
+        outline: none;
+        background: #0d1014;
+        color: #cbd5e1;
+        font-size: 13px;
+        transition: border-color .17s ease, background .17s ease;
+    }
+
+
+        .field-control:focus {
+            border-color: rgba(148,163,184,.30);
+            background: #0f1216;
+        }
+
+
+        .field-control::placeholder {
+            color: #334155;
+        }
+
+
+    .employee-preview {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border: 1px solid rgba(255,255,255,.045);
+        border-radius: 11px;
+        background: rgba(0,0,0,.12);
+    }
+
+
+    .employee-avatar {
+        display: flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 9px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+
+    .primary-button,
+    .secondary-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .17s ease, border-color .17s ease, opacity .17s ease;
+    }
+
+
+    .primary-button {
+        border: 1px solid rgba(255,255,255,.14);
+        background: #e2e8f0;
+        color: #111827;
+    }
+
+
+        .primary-button:hover:not(:disabled) {
+            background: #f1f5f9;
+        }
+
+
+        .primary-button:disabled {
+            cursor: not-allowed;
+            opacity: .35;
+        }
+
+
+    .secondary-button {
+        border: 1px solid rgba(148,163,184,.10);
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+    }
+
+
+        .secondary-button:hover:not(:disabled) {
+            color: #cbd5e1;
+            background: rgba(255,255,255,.035);
+        }
+
+
+    .assign-spinner,
+    .button-spinner {
+        border: 2px solid rgba(148,163,184,.12);
+        border-top-color: #94a3b8;
+        border-radius: 9999px;
+        animation: assignSpin .7s linear infinite;
+    }
+
+
+    .assign-spinner {
+        width: 26px;
+        height: 26px;
+    }
+
+
+    .button-spinner {
+        width: 14px;
+        height: 14px;
+        border-color: rgba(15,23,42,.22);
+        border-top-color: #0f172a;
+    }
+
+
+    @@keyframes assignSpin {
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+</style>
+
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+
+    private AssetModel? asset;
+
+    private List<EmployeeModel> activeEmployees =
+        [];
+
+
+    private int employeeId;
+
+    private string notes =
+        string.Empty;
+
+
+    private bool isLoading = true;
+
+    private bool isSubmitting;
+
+
+    private string? loadError;
+
+    private string? actionError;
+
+
+    private bool CanAssign =>
+        asset?.Status == "Disponible";
+
+
+    private bool CanSubmit =>
+        CanAssign
+        && employeeId > 0
+        && !isSubmitting;
+
+
+    private EmployeeModel? SelectedEmployee =>
+        activeEmployees.FirstOrDefault(
+            employee =>
+                employee.Id == employeeId);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            asset =
+                await AssetApiService.GetByIdAsync(Id);
+
+            if (asset is null)
+            {
+                loadError =
+                    "El activo solicitado no existe.";
+
+                return;
+            }
+
+            var employees =
+                await EmployeeApiService.GetAllAsync();
+
+            activeEmployees =
+                employees
+                    .Where(employee =>
+                        employee.IsActive)
+                    .OrderBy(employee =>
+                        employee.FirstName)
+                    .ThenBy(employee =>
+                        employee.LastName)
+                    .ToList();
+        }
+        catch (Exception ex)
+        {
+            loadError =
+                ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private async Task AssignAsset()
+    {
+        if (!CanSubmit)
+            return;
+
+        try
+        {
+            isSubmitting = true;
+            actionError = null;
+
+            var request =
+                new AssignAssetRequest
+                {
+                    EmployeeId = employeeId,
+
+                    Notes =
+                        string.IsNullOrWhiteSpace(notes)
+                            ? null
+                            : notes.Trim()
+                };
+
+            await AssetApiService.AssignAsync(
+                Id,
+                request);
+
+            Navigation.NavigateTo(
+                $"/assets/{Id}/history");
+        }
+        catch (Exception ex)
+        {
+            actionError =
+                ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(
+            "/assets");
+    }
+
+
+    private string GetAssetInitial()
+    {
+        if (string.IsNullOrWhiteSpace(
+            asset?.Category))
+        {
+            return "A";
+        }
+
+        return asset.Category[..1]
+            .ToUpperInvariant();
+    }
+
+
+    private string GetStatusTextClass()
+    {
+        return CanAssign
+            ? "status-ok"
+            : "status-blocked";
+    }
+
+
+    private static string GetEmployeeInitials(
+        EmployeeModel employee)
+    {
+        var first =
+            string.IsNullOrWhiteSpace(
+                employee.FirstName)
+                ? ""
+                : employee.FirstName[..1];
+
+        var last =
+            string.IsNullOrWhiteSpace(
+                employee.LastName)
+                ? ""
+                : employee.LastName[..1];
+
+        return $"{first}{last}"
+            .ToUpperInvariant();
+    }
+
+}

@@ -1,0 +1,585 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+@page "/"
+@layout EmptyLayout
+
+@using Quom.AssetManagement.Web.Services
+
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Control de Activos | Quom</PageTitle>
+
+<div class="quom-login">
+
+    <div class="pointer-events-none fixed inset-0 overflow-hidden">
+        <div class="ambient-bloom ambient-bloom-one"></div>
+        <div class="ambient-bloom ambient-bloom-two"></div>
+    </div>
+
+    <div class="background-lines pointer-events-none fixed inset-0"></div>
+
+    <main class="relative z-10 grid min-h-screen lg:grid-cols-[1fr_0.9fr]">
+
+        <section class="flex min-h-[38vh] flex-col justify-between
+            border-white/5 px-8 py-8
+            lg:min-h-screen lg:border-r lg:px-14 lg:py-12">
+
+            <div class="flex items-center gap-4">
+
+                <div class="brand-icon">
+                    Q
+                </div>
+
+                <div class="h-10 w-px bg-white/15"></div>
+
+                <div>
+                    <p class="text-xl font-semibold tracking-tight text-white">
+                        Quom
+                    </p>
+
+                    <p class="mt-0.5 text-sm text-slate-500">
+                        Asset Management
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="my-14 max-w-xl lg:my-0">
+
+                <div class="glass-panel relative overflow-hidden p-8 lg:p-10">
+
+                    <div class="card-shine"></div>
+
+                    <p class="relative text-xs font-semibold uppercase
+                        tracking-[0.32em] text-slate-400">
+                        Prueba técnica
+                    </p>
+
+                    <h1 class="relative mt-5 text-4xl font-semibold
+                        tracking-tight text-white
+                        sm:text-5xl lg:text-6xl">
+                        Steven
+
+                        <span class="text-slate-400">
+                            Escárcega
+                        </span>
+                    </h1>
+
+                    <div class="relative mt-8 flex items-center gap-3">
+                        <div class="name-line"></div>
+                        <div class="h-px flex-1 bg-white/[0.04]"></div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="hidden h-12 lg:block"></div>
+
+        </section>
+
+        <section class="flex items-center justify-center
+            px-6 pb-12 lg:px-12 lg:py-12">
+
+            <div class="login-card-wrapper w-full max-w-lg">
+
+                <div class="border-light"
+                     aria-hidden="true">
+                </div>
+
+                <div class="login-card">
+
+                    <div class="relative z-10 p-7 sm:p-10 lg:p-12">
+
+                        <div class="security-icon">
+
+                            <svg viewBox="0 0 24 24"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 stroke-width="1.5"
+                                 class="h-7 w-7 text-slate-300">
+
+                                <path stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      d="M12 3.75c-1.8 1.5-4.2 2.25-7.2 2.25v5.25c0 4.85 3.05 8.65 7.2 9.75 4.15-1.1 7.2-4.9 7.2-9.75V6c-3 0-5.4-.75-7.2-2.25Z" />
+
+                                <path stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      d="M9.75 11.25v-1a2.25 2.25 0 0 1 4.5 0v1m-5.25 0h6v4.5H9v-4.5Z" />
+                            </svg>
+
+                        </div>
+
+                        <div class="mt-6 text-center">
+
+                            <h2 class="text-3xl font-semibold tracking-tight
+                                text-white sm:text-4xl">
+                                Control de Activos
+                            </h2>
+
+                            <p class="mt-2 text-sm text-slate-500">
+                                Iniciar sesión
+                            </p>
+
+                        </div>
+
+                        <form @onsubmit="HandleLogin"
+                              @onsubmit:preventDefault="true"
+                              class="mt-9 space-y-4">
+
+                            <div class="input-shell">
+
+                                <svg viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="1.5"
+                                     class="h-5 w-5 shrink-0 text-slate-500">
+
+                                    <path stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                          d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0" />
+                                </svg>
+
+                                <input type="text"
+                                       autocomplete="username"
+                                       @bind="login"
+                                       disabled="@isLoading"
+                                       placeholder="Usuario o correo electrónico"
+                                       class="login-input" />
+
+                            </div>
+
+                            <div class="input-shell">
+
+                                <svg viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="1.5"
+                                     class="h-5 w-5 shrink-0 text-slate-500">
+
+                                    <path stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                          d="M16.5 10.5V6.75a4.5 4.5 0 0 0-9 0v3.75m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21H6.75A2.25 2.25 0 0 1 4.5 18.75v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
+                                </svg>
+
+                                <input type="@PasswordInputType"
+                                       autocomplete="current-password"
+                                       @bind="password"
+                                       disabled="@isLoading"
+                                       placeholder="Contraseña"
+                                       class="login-input" />
+
+                                <button type="button"
+                                        @onclick="TogglePassword"
+                                        tabindex="-1"
+                                        aria-label="Mostrar u ocultar contraseña"
+                                        class="text-slate-600 transition hover:text-slate-300">
+
+                                    @if (showPassword)
+                                    {
+                                        <svg viewBox="0 0 24 24"
+                                             fill="none"
+                                             stroke="currentColor"
+                                             stroke-width="1.5"
+                                             class="h-5 w-5">
+
+                                            <path stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.5 10.5 0 0 1 12 4c5.5 0 9 5 9 5a15 15 0 0 1-2.1 2.7M6.6 6.6C4.3 8.1 3 10 3 10s3.5 5 9 5c1 0 1.9-.2 2.7-.4" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 24 24"
+                                             fill="none"
+                                             stroke="currentColor"
+                                             stroke-width="1.5"
+                                             class="h-5 w-5">
+
+                                            <path stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
+
+                                            <path stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                        </svg>
+                                    }
+
+                                </button>
+
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(errorMessage))
+                            {
+                                <div class="rounded-xl border border-red-500/15
+                                    bg-red-500/[0.06] px-4 py-3
+                                    text-sm text-red-300">
+                                    @errorMessage
+                                </div>
+                            }
+
+                            <button type="submit"
+                                    disabled="@isLoading"
+                                    class="login-button">
+
+                                @if (isLoading)
+                                {
+                                    <span class="loading-spinner"></span>
+                                    <span>Iniciando sesión...</span>
+                                }
+                                else
+                                {
+                                    <svg viewBox="0 0 24 24"
+                                         fill="none"
+                                         stroke="currentColor"
+                                         stroke-width="1.7"
+                                         class="h-5 w-5">
+
+                                        <path stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H21" />
+                                    </svg>
+
+                                    <span>Iniciar sesión</span>
+                                }
+
+                            </button>
+
+                        </form>
+
+                        <div class="mt-8 h-px bg-white/[0.055]"></div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<style>
+
+    .quom-login {
+        position: relative;
+        min-height: 100vh;
+        overflow: hidden;
+        background: radial-gradient( circle at 15% 20%, rgba(71, 85, 105, .065), transparent 31% ), radial-gradient( circle at 90% 80%, rgba(51, 65, 85, .055), transparent 35% ), linear-gradient( 145deg, #090b0e 0%, #080a0d 48%, #0a0c0f 100% );
+    }
+
+    .background-lines {
+        opacity: .34;
+        background-image: linear-gradient( 135deg, transparent 0%, transparent 34%, rgba(255,255,255,.02) 34.1%, rgba(255,255,255,.02) 34.24%, transparent 34.34%, transparent 100% );
+        background-size: 430px 430px;
+    }
+
+    .ambient-bloom {
+        position: absolute;
+        border-radius: 9999px;
+        filter: blur(110px);
+        opacity: .08;
+    }
+
+    .ambient-bloom-one {
+        width: 420px;
+        height: 420px;
+        left: -180px;
+        top: 18%;
+        background: #64748b;
+    }
+
+    .ambient-bloom-two {
+        width: 500px;
+        height: 500px;
+        right: -240px;
+        bottom: -190px;
+        background: #475569;
+    }
+
+    .brand-icon {
+        display: flex;
+        width: 48px;
+        height: 48px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 14px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.075), rgba(255,255,255,.015) );
+        color: white;
+        font-size: 21px;
+        font-weight: 700;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 35px rgba(0,0,0,.30);
+    }
+
+    .glass-panel {
+        border: 1px solid rgba(255,255,255,.085);
+        border-radius: 24px;
+        background: linear-gradient( 135deg, rgba(255,255,255,.048), rgba(255,255,255,.014) );
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 30px 80px rgba(0,0,0,.28);
+    }
+
+    .card-shine {
+        position: absolute;
+        width: 170px;
+        height: 170px;
+        right: -70px;
+        top: -80px;
+        border-radius: 9999px;
+        background: rgba(148,163,184,.055);
+        filter: blur(60px);
+    }
+
+    .name-line {
+        width: 96px;
+        height: 1px;
+        background: linear-gradient( 90deg, rgba(226,232,240,.72), rgba(148,163,184,.24) );
+        box-shadow: 0 0 8px rgba(203,213,225,.13);
+    }
+
+    .login-card-wrapper {
+        position: relative;
+        overflow: hidden;
+        padding: 1px;
+        border-radius: 28px;
+        background: rgba(255,255,255,.07);
+        box-shadow: 0 35px 100px rgba(0,0,0,.48);
+    }
+
+    .login-card {
+        position: relative;
+        z-index: 2;
+        overflow: hidden;
+        width: 100%;
+        border-radius: 27px;
+        background: linear-gradient( 145deg, rgba(29,32,37,.97), rgba(13,15,18,.98) );
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+    }
+
+    .border-light {
+        position: absolute;
+        width: 160%;
+        aspect-ratio: 1;
+        left: -30%;
+        top: 50%;
+        z-index: 1;
+        transform-origin: center;
+        pointer-events: none;
+        background: conic-gradient( transparent 0deg, transparent 329deg, rgba(255,255,255,.025) 335deg, rgba(255,255,255,.12) 341deg, rgba(255,255,255,.46) 346deg, rgba(255,255,255,.10) 351deg, transparent 357deg, transparent 360deg );
+        animation: borderRotation 11s linear infinite;
+    }
+
+    .security-icon {
+        display: flex;
+        width: 56px;
+        height: 56px;
+        margin-inline: auto;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,.09);
+        border-radius: 16px;
+        background: rgba(255,255,255,.025);
+        box-shadow: 0 0 28px rgba(148,163,184,.07);
+    }
+
+    .input-shell {
+        display: flex;
+        min-height: 58px;
+        align-items: center;
+        gap: 14px;
+        padding: 0 18px;
+        border: 1px solid rgba(148,163,184,.15);
+        border-radius: 15px;
+        background: rgba(0,0,0,.16);
+        transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+
+        .input-shell:focus-within {
+            border-color: rgba(203,213,225,.32);
+            background: rgba(255,255,255,.018);
+            box-shadow: 0 0 0 3px rgba(148,163,184,.035);
+        }
+
+    .login-input {
+        width: 100%;
+        min-width: 0;
+        flex: 1;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #f8fafc;
+        font-size: 14px;
+    }
+
+        .login-input::placeholder {
+            color: #475569;
+        }
+
+        .login-input:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+        }
+
+    .login-button {
+        display: flex;
+        width: 100%;
+        min-height: 58px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 22px;
+        border: 1px solid rgba(255,255,255,.11);
+        border-radius: 15px;
+        background: linear-gradient( 100deg, #d9e0e8 0%, #8a95a2 48%, #dde4eb 100% );
+        color: #0f172a;
+        font-size: 14px;
+        font-weight: 700;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.48), 0 8px 28px rgba(0,0,0,.26);
+        transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+    }
+
+        .login-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.07);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 11px 34px rgba(0,0,0,.32);
+        }
+
+        .login-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .login-button:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+        }
+
+    .loading-spinner {
+        width: 17px;
+        height: 17px;
+        border: 2px solid rgba(15,23,42,.24);
+        border-top-color: #0f172a;
+        border-radius: 9999px;
+        animation: spin .7s linear infinite;
+    }
+
+    @@keyframes borderRotation {
+
+        from {
+            transform: translateY(-50%) rotate(0deg);
+        }
+
+        to {
+            transform: translateY(-50%) rotate(360deg);
+        }
+    }
+
+    @@keyframes spin {
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+
+        .border-light {
+            animation: none;
+        }
+
+        .loading-spinner {
+            animation-duration: 1.4s;
+        }
+
+        .login-button {
+            transition: none;
+        }
+    }
+
+</style>
+
+@code {
+
+    private string login =
+        string.Empty;
+
+    private string password =
+        string.Empty;
+
+    private bool isLoading;
+
+    private bool showPassword;
+
+    private string? errorMessage;
+
+
+    private string PasswordInputType =>
+        showPassword
+            ? "text"
+            : "password";
+
+
+    private void TogglePassword()
+    {
+        showPassword =
+            !showPassword;
+    }
+
+
+    private async Task HandleLogin()
+    {
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(login) ||
+            string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage =
+                "Ingresa tu usuario y contraseña.";
+
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+
+            var success =
+                await AuthService.LoginAsync(
+                    login.Trim(),
+                    password);
+
+            if (!success)
+            {
+                errorMessage =
+                    "Usuario o contraseña incorrectos.";
+
+                return;
+            }
+
+            Navigation.NavigateTo(
+                "/assets");
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage =
+                "No fue posible establecer comunicación con el servidor.";
+        }
+        catch
+        {
+            errorMessage =
+                "Ocurrió un error al iniciar sesión.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+}

@@ -1,0 +1,715 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+@page "/assets/{Id:int}/history"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+
+@inject AssetApiService AssetApiService
+@inject NavigationManager Navigation
+
+<PageTitle>Historial del activo | Quom</PageTitle>
+
+<div class="history-page">
+
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+
+        <div>
+
+            <button class="back-link"
+                    @onclick="GoBack">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.7"
+                     class="h-4 w-4">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+
+                <span>Volver a activos</span>
+
+            </button>
+
+            <p class="mt-6 text-xs font-semibold uppercase
+                tracking-[0.24em] text-slate-500">
+                Trazabilidad
+            </p>
+
+            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-white">
+                Historial del activo
+            </h1>
+
+            @if (asset is not null)
+            {
+                <p class="mt-2 text-sm text-slate-500">
+                    @asset.AssetCode · @asset.Brand @asset.Model
+                </p>
+            }
+
+        </div>
+
+    </div>
+
+
+    @if (asset is not null)
+    {
+        <section class="asset-summary mt-7">
+
+            <div>
+                <p class="summary-label">
+                    Código
+                </p>
+
+                <p class="summary-value">
+                    @asset.AssetCode
+                </p>
+            </div>
+
+            <div>
+                <p class="summary-label">
+                    Categoría
+                </p>
+
+                <p class="summary-value">
+                    @asset.Category
+                </p>
+            </div>
+
+            <div>
+                <p class="summary-label">
+                    Estado actual
+                </p>
+
+                <span class="@GetStatusClass(asset.Status)">
+                    <span class="status-dot"></span>
+                    @asset.Status
+                </span>
+            </div>
+
+            <div>
+                <p class="summary-label">
+                    Ubicación
+                </p>
+
+                <p class="summary-value">
+                    @(string.IsNullOrWhiteSpace(asset.CurrentLocation)
+                        ? "Sin ubicación"
+                        : asset.CurrentLocation)
+                </p>
+            </div>
+
+        </section>
+    }
+
+
+    <section class="business-rule mt-6">
+
+        <div class="rule-icon">
+            i
+        </div>
+
+        <div>
+            <p class="text-sm font-medium text-slate-300">
+                Trazabilidad de movimientos
+            </p>
+
+            <p class="mt-1 text-sm leading-6 text-slate-500">
+                El historial registra altas, asignaciones, devoluciones,
+                cambios de estado y cambios de ubicación, junto con el
+                usuario que realizó cada operación.
+            </p>
+        </div>
+
+    </section>
+
+
+    <section class="timeline-card mt-6">
+
+        @if (isLoading)
+        {
+            <div class="flex min-h-72 items-center justify-center">
+
+                <div class="text-center">
+
+                    <div class="history-spinner mx-auto"></div>
+
+                    <p class="mt-4 text-sm text-slate-500">
+                        Consultando historial...
+                    </p>
+
+                </div>
+
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="p-7">
+
+                <div class="rounded-xl border border-red-500/15
+                    bg-red-500/[0.05] px-5 py-4">
+
+                    <p class="text-sm font-medium text-red-300">
+                        No fue posible consultar el historial
+                    </p>
+
+                    <p class="mt-1 text-sm text-red-400/70">
+                        @errorMessage
+                    </p>
+
+                </div>
+
+            </div>
+        }
+        else if (!movements.Any())
+        {
+            <div class="flex min-h-72 items-center justify-center">
+
+                <div class="text-center">
+
+                    <p class="text-sm font-medium text-slate-300">
+                        Sin movimientos registrados
+                    </p>
+
+                    <p class="mt-2 text-sm text-slate-600">
+                        Este activo todavía no cuenta con historial.
+                    </p>
+
+                </div>
+
+            </div>
+        }
+        else
+        {
+            <div class="timeline">
+
+                @foreach (var movement in movements)
+                {
+                    <article class="timeline-item">
+
+                        <div class="timeline-marker">
+                            <div class="@GetMovementDotClass(movement.MovementType)">
+                            </div>
+                        </div>
+
+                        <div class="timeline-content">
+
+                            <div class="flex flex-col gap-3
+                                md:flex-row md:items-start md:justify-between">
+
+                                <div>
+
+                                    <div class="flex flex-wrap items-center gap-2">
+
+                                        <span class="movement-badge">
+                                            @GetMovementLabel(movement.MovementType)
+                                        </span>
+
+                                        <span class="text-xs text-slate-600">
+                                            #@movement.Id
+                                        </span>
+
+                                    </div>
+
+                                    <p class="mt-3 text-sm font-medium text-slate-300">
+                                        @GetMovementDescription(movement)
+                                    </p>
+
+                                </div>
+
+                                <div class="text-left md:text-right">
+
+                                    <p class="text-xs font-medium text-slate-400">
+                                        @(movement.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
+                                    </p>
+
+                                    <p class="mt-1 text-xs text-slate-600">
+                                        @movement.PerformedByUsername
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            @if (!string.IsNullOrWhiteSpace(movement.Notes))
+                            {
+                                <div class="movement-notes">
+
+                                    <p class="text-xs uppercase
+                                        tracking-[0.12em]
+                                        text-slate-700">
+                                        Observaciones
+                                    </p>
+
+                                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                                        @movement.Notes
+                                    </p>
+
+                                </div>
+                            }
+
+                        </div>
+
+                    </article>
+                }
+
+            </div>
+        }
+
+    </section>
+
+</div>
+
+
+<style>
+
+    .history-page {
+        width: 100%;
+        max-width: 1320px;
+        margin-inline: auto;
+    }
+
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 13px;
+        transition: color .16s ease;
+    }
+
+
+        .back-link:hover {
+            color: #cbd5e1;
+        }
+
+
+    .asset-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 1px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 15px;
+        background: rgba(255,255,255,.05);
+    }
+
+
+        .asset-summary > div {
+            min-height: 88px;
+            padding: 17px 19px;
+            background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.008) );
+        }
+
+
+    .summary-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+
+    .summary-value {
+        margin-top: 9px;
+        color: #cbd5e1;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+
+    .business-rule {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 15px 17px;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 14px;
+        background: linear-gradient( 120deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+
+    .rule-icon {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.13);
+        border-radius: 7px;
+        background: rgba(255,255,255,.02);
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .timeline-card {
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.015), rgba(255,255,255,.005) );
+    }
+
+
+    .timeline {
+        padding: 12px 0;
+    }
+
+
+    .timeline-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 64px 1fr;
+    }
+
+
+        .timeline-item:not(:last-child)::before {
+            content: "";
+            position: absolute;
+            left: 31px;
+            top: 40px;
+            bottom: -10px;
+            width: 1px;
+            background: rgba(148,163,184,.09);
+        }
+
+
+    .timeline-marker {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        padding-top: 28px;
+    }
+
+
+    .movement-dot {
+        position: relative;
+        z-index: 2;
+        width: 9px;
+        height: 9px;
+        border-radius: 9999px;
+        border: 2px solid #0b0d10;
+        box-shadow: 0 0 0 1px rgba(255,255,255,.10);
+    }
+
+
+    .dot-created {
+        background: #cbd5e1;
+    }
+
+
+    .dot-assigned {
+        background: #93c5fd;
+    }
+
+
+    .dot-returned {
+        background: #86efac;
+    }
+
+
+    .dot-change {
+        background: #fde68a;
+    }
+
+
+    .timeline-content {
+        padding: 23px 24px 23px 0;
+        border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+
+
+    .timeline-item:last-child .timeline-content {
+        border-bottom: none;
+    }
+
+
+    .movement-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 8px;
+        border: 1px solid rgba(148,163,184,.09);
+        border-radius: 8px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .10em;
+    }
+
+
+    .movement-notes {
+        margin-top: 14px;
+        padding: 13px 15px;
+        border: 1px solid rgba(255,255,255,.04);
+        border-radius: 10px;
+        background: rgba(0,0,0,.12);
+    }
+
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 7px;
+        padding: 6px 9px;
+        border: 1px solid;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+
+    .status-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 9999px;
+        background: currentColor;
+    }
+
+
+    .status-available {
+        border-color: rgba(74,222,128,.13);
+        background: rgba(74,222,128,.055);
+        color: #86efac;
+    }
+
+
+    .status-assigned {
+        border-color: rgba(96,165,250,.14);
+        background: rgba(96,165,250,.055);
+        color: #93c5fd;
+    }
+
+
+    .status-maintenance {
+        border-color: rgba(250,204,21,.13);
+        background: rgba(250,204,21,.045);
+        color: #fde68a;
+    }
+
+
+    .status-retired {
+        border-color: rgba(148,163,184,.10);
+        background: rgba(148,163,184,.035);
+        color: #64748b;
+    }
+
+
+    .history-spinner {
+        width: 26px;
+        height: 26px;
+        border: 2px solid rgba(148,163,184,.12);
+        border-top-color: #94a3b8;
+        border-radius: 9999px;
+        animation: historySpin .7s linear infinite;
+    }
+
+
+    @@keyframes historySpin {
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+
+    @@media (max-width: 800px) {
+
+        .asset-summary {
+            grid-template-columns: repeat(2, minmax(0,1fr));
+        }
+    }
+
+
+    @@media (max-width: 520px) {
+
+        .asset-summary {
+            grid-template-columns: 1fr;
+        }
+
+
+        .timeline-item {
+            grid-template-columns: 45px 1fr;
+        }
+
+
+            .timeline-item:not(:last-child)::before {
+                left: 22px;
+            }
+    }
+
+</style>
+
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+
+    private AssetModel? asset;
+
+    private IEnumerable<AssetMovementModel> movements =
+        [];
+
+
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistoryAsync();
+    }
+
+
+    private async Task LoadHistoryAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            asset =
+                await AssetApiService.GetByIdAsync(Id);
+
+            if (asset is null)
+            {
+                errorMessage =
+                    "El activo solicitado no existe.";
+
+                return;
+            }
+
+            movements =
+                await AssetApiService.GetHistoryAsync(Id);
+        }
+        catch (HttpRequestException ex)
+        {
+            errorMessage =
+                ex.Message;
+        }
+        catch
+        {
+            errorMessage =
+                "Ocurrió un error al consultar el historial.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(
+            "/assets");
+    }
+
+
+    private static string GetMovementLabel(
+        string movementType)
+    {
+        return movementType switch
+        {
+            "AssetCreated" =>
+                "Alta",
+
+            "Assigned" =>
+                "Asignación",
+
+            "Returned" =>
+                "Devolución",
+
+            "StatusChanged" =>
+                "Cambio de estado",
+
+            "LocationChanged" =>
+                "Cambio de ubicación",
+
+            _ =>
+                movementType
+        };
+    }
+
+
+    private static string GetMovementDescription(
+        AssetMovementModel movement)
+    {
+        return movement.MovementType switch
+        {
+            "AssetCreated" =>
+                "El activo fue registrado en el sistema.",
+
+            "Assigned" =>
+                "El activo fue asignado a un colaborador.",
+
+            "Returned" =>
+                "Se registró la devolución del activo.",
+
+            "StatusChanged" =>
+                $"{movement.PreviousStatus ?? "Sin estado"} → {movement.NewStatus ?? "Sin estado"}",
+
+            "LocationChanged" =>
+                $"{movement.PreviousLocation ?? "Sin ubicación"} → {movement.NewLocation ?? "Sin ubicación"}",
+
+            _ =>
+                "Movimiento registrado."
+        };
+    }
+
+
+    private static string GetMovementDotClass(
+        string movementType)
+    {
+        return movementType switch
+        {
+            "AssetCreated" =>
+                "movement-dot dot-created",
+
+            "Assigned" =>
+                "movement-dot dot-assigned",
+
+            "Returned" =>
+                "movement-dot dot-returned",
+
+            _ =>
+                "movement-dot dot-change"
+        };
+    }
+
+
+    private static string GetStatusClass(
+        string statusValue)
+    {
+        return statusValue switch
+        {
+            "Disponible" =>
+                "status-badge status-available",
+
+            "Asignado" =>
+                "status-badge status-assigned",
+
+            "Mantenimiento" =>
+                "status-badge status-maintenance",
+
+            "Retirado" =>
+                "status-badge status-retired",
+
+            _ =>
+                "status-badge status-retired"
+        };
+    }
+
+}

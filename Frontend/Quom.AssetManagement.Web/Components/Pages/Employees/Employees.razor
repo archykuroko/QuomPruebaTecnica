@@ -1,0 +1,1278 @@
+﻿@page "/employees"
+@layout MainLayout
+@rendermode InteractiveServer
+
+@using Quom.AssetManagement.Web.Components.Layout
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+
+@inject EmployeeApiService EmployeeApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Empleados | Quom</PageTitle>
+
+
+<div class="employees-page">
+
+    @* =====================================================
+       HEADER
+       ===================================================== *@
+
+    <div class="page-header">
+
+        <div>
+
+            <p class="page-eyebrow">
+                Administración
+            </p>
+
+            <h1 class="page-title">
+                Empleados
+            </h1>
+
+            <p class="page-description">
+                Personal disponible para la asignación
+                y administración de activos
+            </p>
+
+        </div>
+
+
+        @if (AuthState.IsAdministrator)
+        {
+            <button class="primary-action"
+                    @onclick="GoToCreate">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.8"
+                     class="h-4 w-4">
+
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M12 5v14M5 12h14" />
+
+                </svg>
+
+                <span>
+                    Nuevo empleado
+                </span>
+
+            </button>
+        }
+
+    </div>
+
+
+    @* =====================================================
+       RESUMEN
+       ===================================================== *@
+
+    <div class="summary-grid">
+
+        <div class="summary-card">
+
+            <p class="summary-label">
+                Total de empleados
+            </p>
+
+            <p class="summary-value">
+                @employees.Count
+            </p>
+
+            <p class="summary-description">
+                Registros disponibles
+            </p>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p class="summary-label">
+                Departamentos
+            </p>
+
+            <p class="summary-value">
+                @DepartmentCount
+            </p>
+
+            <p class="summary-description">
+                Áreas registradas
+            </p>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p class="summary-label">
+                Ubicaciones
+            </p>
+
+            <p class="summary-value">
+                @LocationCount
+            </p>
+
+            <p class="summary-description">
+                Ubicaciones distintas
+            </p>
+
+        </div>
+
+    </div>
+
+
+    @* =====================================================
+       REGLA DE NEGOCIO
+       ===================================================== *@
+
+    <div class="business-rule">
+
+        <div class="business-rule-marker">
+            i
+        </div>
+
+        <div>
+
+            <p class="business-rule-title">
+                Gestión de empleados
+            </p>
+
+            <p class="business-rule-text">
+
+                Los empleados registrados pueden utilizarse en los
+                procesos de asignación de activos.
+
+                @if (!AuthState.IsAdministrator)
+                {
+                    <span>
+                        Tu perfil cuenta con acceso de consulta.
+                    </span>
+                }
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+    @* =====================================================
+       TOOLBAR
+       ===================================================== *@
+
+    <section class="employees-card">
+
+        <div class="toolbar">
+
+            <div class="search-wrapper">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.6"
+                     class="search-icon">
+
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="m21 21-4.35-4.35m1.35-5.4a6.75 6.75 0 1 1-13.5 0 6.75 6.75 0 0 1 13.5 0Z" />
+
+                </svg>
+
+                <input class="search-input"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       placeholder="Buscar por nombre, número, correo, departamento..." />
+
+            </div>
+
+
+            <div class="results-count">
+
+                <span class="results-number">
+                    @FilteredEmployees.Count
+                </span>
+
+                <span>
+                    @(FilteredEmployees.Count == 1
+                        ? "resultado"
+                        : "resultados")
+                </span>
+
+            </div>
+
+        </div>
+
+
+        @* =================================================
+           ESTADOS
+           ================================================= *@
+
+        @if (isLoading)
+        {
+            <div class="table-state">
+
+                <div class="employees-spinner"></div>
+
+                <p>
+                    Cargando empleados...
+                </p>
+
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="table-state">
+
+                <p class="error-title">
+                    No fue posible cargar los empleados
+                </p>
+
+                <p class="error-description">
+                    @errorMessage
+                </p>
+
+                <button class="retry-button"
+                        @onclick="LoadEmployeesAsync">
+
+                    Reintentar
+
+                </button>
+
+            </div>
+        }
+        else if (FilteredEmployees.Count == 0)
+        {
+            <div class="table-state">
+
+                <p class="empty-title">
+                    No se encontraron empleados
+                </p>
+
+                <p class="empty-description">
+
+                    @if (string.IsNullOrWhiteSpace(searchText))
+                    {
+                        <span>
+                            Todavía no existen empleados registrados.
+                        </span>
+                    }
+                    else
+                    {
+                        <span>
+                            Intenta modificar los criterios de búsqueda.
+                        </span>
+                    }
+
+                </p>
+
+            </div>
+        }
+        else
+        {
+            @* =============================================
+               TABLA
+               ============================================= *@
+
+            <div class="table-container">
+
+                <table class="employees-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Empleado
+                            </th>
+
+                            <th>
+                                Número
+                            </th>
+
+                            <th>
+                                Departamento
+                            </th>
+
+                            <th>
+                                Ubicación
+                            </th>
+
+                            <th>
+                                Correo electrónico
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        @foreach (var employee in PagedEmployees)
+                        {
+                            <tr>
+
+                                <td>
+
+                                    <div class="employee-cell">
+
+                                        <div class="employee-avatar">
+                                            @GetInitials(employee)
+                                        </div>
+
+                                        <div>
+
+                                            <p class="employee-name">
+                                                @GetFullName(employee)
+                                            </p>
+
+                                            <p class="employee-secondary">
+                                                Personal registrado
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="employee-number">
+                                        @employee.EmployeeNumber
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    @if (string.IsNullOrWhiteSpace(employee.Department))
+                                    {
+                                        <span class="empty-value">
+                                            Sin departamento
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="standard-value">
+                                            @employee.Department
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <td>
+
+                                    @if (string.IsNullOrWhiteSpace(employee.Location))
+                                    {
+                                        <span class="empty-value">
+                                            Sin ubicación
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="standard-value">
+                                            @employee.Location
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="email-value">
+                                        @employee.Email
+                                    </span>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            @* =============================================
+               PAGINACIÓN
+               ============================================= *@
+
+            <div class="pagination">
+
+                <div class="pagination-info">
+
+                    Mostrando
+
+                    <strong>
+                        @FirstVisibleRecord
+                    </strong>
+
+                    –
+
+                    <strong>
+                        @LastVisibleRecord
+                    </strong>
+
+                    de
+
+                    <strong>
+                        @FilteredEmployees.Count
+                    </strong>
+
+                </div>
+
+
+                <div class="pagination-controls">
+
+                    <button class="pagination-button"
+                            disabled="@(currentPage <= 1)"
+                            @onclick="PreviousPage">
+
+                        Anterior
+
+                    </button>
+
+
+                    <span class="page-indicator">
+
+                        Página
+
+                        <strong>
+                            @currentPage
+                        </strong>
+
+                        de
+
+                        <strong>
+                            @TotalPages
+                        </strong>
+
+                    </span>
+
+
+                    <button class="pagination-button"
+                            disabled="@(currentPage >= TotalPages)"
+                            @onclick="NextPage">
+
+                        Siguiente
+
+                    </button>
+
+                </div>
+
+            </div>
+        }
+
+    </section>
+
+</div>
+
+
+<style>
+
+    /* =====================================================
+           PAGE
+           ===================================================== */
+
+    .employees-page {
+        width: 100%;
+        max-width: 1400px;
+        margin-inline: auto;
+    }
+
+
+    /* =====================================================
+           HEADER
+           ===================================================== */
+
+    .page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+    }
+
+
+    .page-eyebrow {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .24em;
+    }
+
+
+    .page-title {
+        margin-top: 7px;
+        color: #f8fafc;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -.025em;
+    }
+
+
+    .page-description {
+        margin-top: 7px;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+
+    /* =====================================================
+           PRIMARY ACTION
+           ===================================================== */
+
+    .primary-action {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 16px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 10px;
+        background: #e2e8f0;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 650;
+        transition: background .17s ease, transform .17s ease, box-shadow .17s ease;
+    }
+
+
+        .primary-action:hover {
+            transform: translateY(-1px);
+            background: #f8fafc;
+            box-shadow: 0 8px 25px rgba(0,0,0,.25);
+        }
+
+
+    /* =====================================================
+           SUMMARY
+           ===================================================== */
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 28px;
+    }
+
+
+    .summary-card {
+        padding: 18px 20px;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 14px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+
+    .summary-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .11em;
+    }
+
+
+    .summary-value {
+        margin-top: 8px;
+        color: #e2e8f0;
+        font-size: 25px;
+        font-weight: 600;
+    }
+
+
+    .summary-description {
+        margin-top: 2px;
+        color: #475569;
+        font-size: 11px;
+    }
+
+
+    /* =====================================================
+           BUSINESS RULE
+           ===================================================== */
+
+    .business-rule {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid rgba(148,163,184,.075);
+        border-radius: 12px;
+        background: rgba(255,255,255,.012);
+    }
+
+
+    .business-rule-marker {
+        display: flex;
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 6px;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+
+    .business-rule-title {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+
+    .business-rule-text {
+        margin-top: 2px;
+        color: #475569;
+        font-size: 11px;
+        line-height: 1.6;
+    }
+
+
+    /* =====================================================
+           CARD
+           ===================================================== */
+
+    .employees-card {
+        margin-top: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 15px;
+        background: rgba(255,255,255,.009);
+    }
+
+
+    /* =====================================================
+           TOOLBAR
+           ===================================================== */
+
+    .toolbar {
+        display: flex;
+        min-height: 72px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 14px 18px;
+        border-bottom: 1px solid rgba(255,255,255,.045);
+    }
+
+
+    .search-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 520px;
+    }
+
+
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        width: 17px;
+        height: 17px;
+        transform: translateY(-50%);
+        color: #475569;
+        pointer-events: none;
+    }
+
+
+    .search-input {
+        width: 100%;
+        min-height: 42px;
+        padding: 0 14px 0 42px;
+        border: 1px solid rgba(148,163,184,.11);
+        border-radius: 10px;
+        outline: none;
+        background: rgba(0,0,0,.15);
+        color: #cbd5e1;
+        font-size: 12px;
+        transition: border-color .18s ease, background .18s ease;
+    }
+
+
+        .search-input:focus {
+            border-color: rgba(148,163,184,.23);
+            background: rgba(255,255,255,.012);
+        }
+
+
+        .search-input::placeholder {
+            color: #334155;
+        }
+
+
+    .results-count {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        color: #475569;
+        font-size: 11px;
+    }
+
+
+    .results-number {
+        color: #94a3b8;
+        font-weight: 600;
+    }
+
+
+    /* =====================================================
+           TABLE
+           ===================================================== */
+
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+
+    .employees-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+
+        .employees-table th {
+            padding: 12px 18px;
+            border-bottom: 1px solid rgba(255,255,255,.045);
+            color: #475569;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+
+        .employees-table td {
+            padding: 15px 18px;
+            border-bottom: 1px solid rgba(255,255,255,.035);
+            vertical-align: middle;
+            font-size: 12px;
+        }
+
+
+        .employees-table tbody tr {
+            transition: background .15s ease;
+        }
+
+
+            .employees-table tbody tr:hover {
+                background: rgba(255,255,255,.015);
+            }
+
+
+            .employees-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+
+
+    /* =====================================================
+           EMPLOYEE
+           ===================================================== */
+
+    .employee-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 190px;
+    }
+
+
+    .employee-avatar {
+        display: flex;
+        width: 35px;
+        height: 35px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,.065);
+        border-radius: 9px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 650;
+    }
+
+
+    .employee-name {
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+
+    .employee-secondary {
+        margin-top: 2px;
+        color: #334155;
+        font-size: 10px;
+    }
+
+
+    .employee-number {
+        display: inline-flex;
+        padding: 5px 8px;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 7px;
+        background: rgba(255,255,255,.015);
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 600;
+    }
+
+
+    .standard-value {
+        color: #64748b;
+    }
+
+
+    .email-value {
+        color: #64748b;
+    }
+
+
+    .empty-value {
+        color: #334155;
+        font-style: italic;
+    }
+
+
+    /* =====================================================
+           STATES
+           ===================================================== */
+
+    .table-state {
+        display: flex;
+        min-height: 280px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 30px;
+        color: #475569;
+        text-align: center;
+        font-size: 12px;
+    }
+
+
+    .employees-spinner {
+        width: 25px;
+        height: 25px;
+        margin-bottom: 14px;
+        border: 2px solid rgba(148,163,184,.10);
+        border-top-color: #64748b;
+        border-radius: 9999px;
+        animation: employeeSpin .7s linear infinite;
+    }
+
+
+    .error-title,
+    .empty-title {
+        color: #94a3b8;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+
+    .error-description,
+    .empty-description {
+        margin-top: 5px;
+        color: #475569;
+    }
+
+
+    .retry-button {
+        margin-top: 15px;
+        padding: 8px 13px;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 8px;
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+        font-size: 11px;
+    }
+
+
+    /* =====================================================
+           PAGINATION
+           ===================================================== */
+
+    .pagination {
+        display: flex;
+        min-height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 12px 18px;
+        border-top: 1px solid rgba(255,255,255,.045);
+    }
+
+
+    .pagination-info,
+    .page-indicator {
+        color: #475569;
+        font-size: 11px;
+    }
+
+
+        .pagination-info strong,
+        .page-indicator strong {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+
+    .pagination-button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid rgba(148,163,184,.09);
+        border-radius: 8px;
+        background: rgba(255,255,255,.012);
+        color: #64748b;
+        font-size: 11px;
+        transition: color .15s ease, background .15s ease;
+    }
+
+
+        .pagination-button:hover:not(:disabled) {
+            color: #cbd5e1;
+            background: rgba(255,255,255,.03);
+        }
+
+
+        .pagination-button:disabled {
+            cursor: not-allowed;
+            opacity: .3;
+        }
+
+
+    @@keyframes employeeSpin {
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+
+    /* =====================================================
+           RESPONSIVE
+           ===================================================== */
+
+    @@media (max-width: 900px) {
+
+        .page-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+
+        .summary-grid {
+            grid-template-columns: 1fr;
+        }
+
+
+        .toolbar,
+        .pagination {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+
+        .search-wrapper {
+            max-width: none;
+        }
+
+
+        .pagination-controls {
+            justify-content: space-between;
+        }
+    }
+
+</style>
+
+
+@code {
+
+    private List<EmployeeModel> employees = [];
+
+    private string searchText = string.Empty;
+
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+    private int currentPage = 1;
+
+    private const int PageSize = 10;
+
+
+    // =====================================================
+    // FILTROS
+    // =====================================================
+
+    private List<EmployeeModel> FilteredEmployees
+    {
+        get
+        {
+            IEnumerable<EmployeeModel> query =
+                employees;
+
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var term =
+                    searchText.Trim();
+
+
+                query =
+                    query.Where(employee =>
+                        Contains(
+                            employee.EmployeeNumber,
+                            term)
+                        ||
+                        Contains(
+                            employee.FirstName,
+                            term)
+                        ||
+                        Contains(
+                            employee.LastName,
+                            term)
+                        ||
+                        Contains(
+                            employee.Email,
+                            term)
+                        ||
+                        Contains(
+                            employee.Department,
+                            term)
+                        ||
+                        Contains(
+                            employee.Location,
+                            term));
+            }
+
+
+            return query
+                .OrderBy(employee => employee.LastName)
+                .ThenBy(employee => employee.FirstName)
+                .ToList();
+        }
+    }
+
+
+    private List<EmployeeModel> PagedEmployees =>
+        FilteredEmployees
+            .Skip((currentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+
+
+    // =====================================================
+    // SUMMARY
+    // =====================================================
+
+    private int DepartmentCount =>
+        employees
+            .Where(employee =>
+                !string.IsNullOrWhiteSpace(
+                    employee.Department))
+            .Select(employee =>
+                employee.Department!.Trim())
+            .Distinct(
+                StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+
+    private int LocationCount =>
+        employees
+            .Where(employee =>
+                !string.IsNullOrWhiteSpace(
+                    employee.Location))
+            .Select(employee =>
+                employee.Location!.Trim())
+            .Distinct(
+                StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+
+    // =====================================================
+    // PAGINATION
+    // =====================================================
+
+    private int TotalPages =>
+        Math.Max(
+            1,
+            (int)Math.Ceiling(
+                FilteredEmployees.Count /
+                (double)PageSize));
+
+
+    private int FirstVisibleRecord =>
+        FilteredEmployees.Count == 0
+            ? 0
+            : ((currentPage - 1) * PageSize) + 1;
+
+
+    private int LastVisibleRecord =>
+        Math.Min(
+            currentPage * PageSize,
+            FilteredEmployees.Count);
+
+
+    // =====================================================
+    // LIFECYCLE
+    // =====================================================
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployeesAsync();
+    }
+
+
+    private async Task LoadEmployeesAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            errorMessage = null;
+
+
+            var result =
+                await EmployeeApiService
+                    .GetAllAsync();
+
+
+            employees =
+                result.ToList();
+
+
+            currentPage = 1;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Navigation.NavigateTo(
+                "/",
+                replace: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
+    private static bool Contains(
+        string? value,
+        string term)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.Contains(
+                term,
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    private static string GetFullName(
+        EmployeeModel employee)
+    {
+        return $"{employee.FirstName} {employee.LastName}"
+            .Trim();
+    }
+
+
+    private static string GetInitials(
+        EmployeeModel employee)
+    {
+        var first =
+            string.IsNullOrWhiteSpace(employee.FirstName)
+                ? string.Empty
+                : employee.FirstName[..1];
+
+
+        var last =
+            string.IsNullOrWhiteSpace(employee.LastName)
+                ? string.Empty
+                : employee.LastName[..1];
+
+
+        var initials =
+            $"{first}{last}"
+                .ToUpperInvariant();
+
+
+        return string.IsNullOrWhiteSpace(initials)
+            ? "EM"
+            : initials;
+    }
+
+
+    // =====================================================
+    // NAVIGATION
+    // =====================================================
+
+    private void GoToCreate()
+    {
+        if (!AuthState.IsAdministrator)
+            return;
+
+
+        Navigation.NavigateTo(
+            "/employees/new");
+    }
+
+
+    private void PreviousPage()
+    {
+        if (currentPage <= 1)
+            return;
+
+
+        currentPage--;
+    }
+
+
+    private void NextPage()
+    {
+        if (currentPage >= TotalPages)
+            return;
+
+
+        currentPage++;
+    }
+
+}

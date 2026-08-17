@@ -1,0 +1,1025 @@
+﻿@page "/suppliers/{Id:int}/services/manage"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Components.Layout
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+
+@inject SupplierApiService SupplierApiService
+@inject ServiceTypeApiService ServiceTypeApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Servicios del proveedor | Quom</PageTitle>
+
+<div class="services-page">
+
+    <button class="back-link"
+            @onclick="GoBack">
+
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.7"
+             class="h-4 w-4">
+
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+
+        </svg>
+
+        <span>Volver a proveedores</span>
+
+    </button>
+
+
+    <div class="mt-6">
+
+        <p class="page-eyebrow">
+            Administración
+        </p>
+
+        <h1 class="page-title">
+            Servicios del proveedor
+        </h1>
+
+        <p class="page-description">
+            Define los tipos de servicio asociados al proveedor seleccionado.
+        </p>
+
+    </div>
+
+
+    @if (!AuthState.IsAdministrator)
+    {
+        <div class="permission-card mt-8">
+
+            <div class="info-symbol">
+                !
+            </div>
+
+            <div>
+                <p class="permission-title">
+                    Operación restringida
+                </p>
+
+                <p class="permission-text">
+                    Sólo los usuarios con rol Administrador
+                    pueden modificar servicios de proveedores.
+                </p>
+            </div>
+
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="loading-state">
+
+            <div class="services-spinner"></div>
+
+            <p>
+                Cargando servicios...
+            </p>
+
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="error-card mt-8">
+            @loadError
+        </div>
+    }
+    else if (supplier is not null)
+    {
+        <div class="mt-8 grid gap-6 xl:grid-cols-[340px_1fr]">
+
+            <aside class="supplier-card">
+
+                <p class="section-label">
+                    Proveedor
+                </p>
+
+                <div class="supplier-header">
+
+                    <div class="supplier-avatar">
+                        @SupplierInitial
+                    </div>
+
+                    <div>
+
+                        <p class="supplier-name">
+                            @supplier.Name
+                        </p>
+
+                        <p class="supplier-subtitle">
+                            @(supplier.IsActive
+                                ? "Proveedor activo"
+                                : "Proveedor inactivo")
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="supplier-details">
+
+                    <div>
+                        <span>RFC / Tax ID</span>
+
+                        <strong>
+                            @DisplayValue(
+                                supplier.TaxId,
+                                "Sin registro")
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Contacto</span>
+
+                        <strong>
+                            @DisplayValue(
+                                supplier.ContactName,
+                                "Sin contacto")
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Correo</span>
+
+                        <strong>
+                            @DisplayValue(
+                                supplier.Email,
+                                "Sin correo")
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Teléfono</span>
+
+                        <strong>
+                            @DisplayValue(
+                                supplier.Phone,
+                                "Sin teléfono")
+                        </strong>
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            <section>
+
+                <div class="business-rule">
+
+                    <div class="info-symbol">
+                        i
+                    </div>
+
+                    <div>
+
+                        <p class="rule-title">
+                            Regla de negocio
+                        </p>
+
+                        <p class="rule-text">
+                            El proveedor debe contar con al menos
+                            un tipo de servicio seleccionado.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="services-card mt-5">
+
+                    <div class="services-header">
+
+                        <div>
+
+                            <p class="section-label">
+                                Tipos de servicio
+                            </p>
+
+                            <p class="mt-2 text-sm text-slate-500">
+                                Selecciona los servicios que ofrece
+                                este proveedor.
+                            </p>
+
+                        </div>
+
+                        <div class="selection-counter">
+
+                            <span class="selection-number">
+                                @selectedServiceIds.Count
+                            </span>
+
+                            <span>
+                                @(selectedServiceIds.Count == 1
+                                    ? "seleccionado"
+                                    : "seleccionados")
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    @if (serviceTypes.Count == 0)
+                    {
+                        <div class="empty-state">
+
+                            <p class="empty-title">
+                                No existen tipos de servicio
+                            </p>
+
+                            <p class="empty-description">
+                                El catálogo de servicios está vacío.
+                            </p>
+
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="services-grid">
+
+                            @foreach (var service in serviceTypes)
+                            {
+                                var isSelected =
+                                    selectedServiceIds.Contains(service.Id);
+
+                                <button type="button"
+                                        class="@GetServiceCardClass(isSelected)"
+                                        @onclick="() => ToggleService(service.Id)">
+
+                                    <div class="@GetCheckboxClass(isSelected)">
+
+                                        @if (isSelected)
+                                        {
+                                            <svg viewBox="0 0 24 24"
+                                                 fill="none"
+                                                 stroke="currentColor"
+                                                 stroke-width="2.2"
+                                                 class="h-3.5 w-3.5">
+
+                                                <path stroke-linecap="round"
+                                                      stroke-linejoin="round"
+                                                      d="m5 12 4 4L19 6" />
+
+                                            </svg>
+                                        }
+
+                                    </div>
+
+                                    <div class="text-left">
+
+                                        <p class="service-name">
+                                            @service.Name
+                                        </p>
+
+                                        <p class="service-description">
+                                            Tipo de servicio disponible
+                                            en catálogo.
+                                        </p>
+
+                                    </div>
+
+                                </button>
+                            }
+
+                        </div>
+                    }
+
+
+                    @if (selectedServiceIds.Count == 0)
+                    {
+                        <div class="selection-warning">
+
+                            <div class="info-symbol">
+                                !
+                            </div>
+
+                            <p>
+                                Selecciona al menos un servicio
+                                para poder guardar los cambios.
+                            </p>
+
+                        </div>
+                    }
+
+
+                    @if (!string.IsNullOrWhiteSpace(actionError))
+                    {
+                        <div class="error-card mt-5">
+                            @actionError
+                        </div>
+                    }
+
+
+                    <div class="actions">
+
+                        <button type="button"
+                                class="secondary-button"
+                                disabled="@isSubmitting"
+                                @onclick="GoBack">
+
+                            Cancelar
+
+                        </button>
+
+
+                        <button type="button"
+                                class="primary-button"
+                                disabled="@(!CanSubmit)"
+                                @onclick="SaveServices">
+
+                            @if (isSubmitting)
+                            {
+                                <span class="button-spinner"></span>
+
+                                <span>
+                                    Guardando...
+                                </span>
+                            }
+                            else
+                            {
+                                <span>
+                                    Guardar servicios
+                                </span>
+                            }
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+    }
+
+</div>
+
+
+<style>
+
+    .services-page {
+        width: 100%;
+        max-width: 1280px;
+        margin-inline: auto;
+    }
+
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 13px;
+        transition: color .16s ease;
+    }
+
+
+        .back-link:hover {
+            color: #cbd5e1;
+        }
+
+
+    .page-eyebrow,
+    .section-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+
+    .page-eyebrow {
+        letter-spacing: .24em;
+    }
+
+
+    .page-title {
+        margin-top: 7px;
+        color: #f8fafc;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -.025em;
+    }
+
+
+    .page-description {
+        margin-top: 7px;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+
+    .supplier-card,
+    .services-card {
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+
+    .supplier-card {
+        align-self: start;
+        padding: 21px;
+    }
+
+
+    .supplier-header {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        margin-top: 18px;
+    }
+
+
+    .supplier-avatar {
+        display: flex;
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.11);
+        border-radius: 11px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+
+    .supplier-name {
+        color: #cbd5e1;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+
+    .supplier-subtitle {
+        margin-top: 2px;
+        color: #475569;
+        font-size: 11px;
+    }
+
+
+    .supplier-details {
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(255,255,255,.04);
+    }
+
+
+        .supplier-details > div {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            font-size: 11px;
+        }
+
+
+        .supplier-details span {
+            color: #475569;
+        }
+
+
+        .supplier-details strong {
+            max-width: 175px;
+            overflow: hidden;
+            color: #94a3b8;
+            font-weight: 500;
+            text-align: right;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+
+    .business-rule,
+    .permission-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 15px 17px;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 13px;
+        background: rgba(255,255,255,.012);
+    }
+
+
+    .permission-card {
+        border-color: rgba(248,113,113,.10);
+        background: rgba(248,113,113,.025);
+    }
+
+
+    .info-symbol {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.13);
+        border-radius: 7px;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+
+    .rule-title,
+    .permission-title {
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+
+    .rule-text,
+    .permission-text {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.6;
+    }
+
+
+    .services-card {
+        padding: 22px;
+    }
+
+
+    .services-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+
+    .selection-counter {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #475569;
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+
+    .selection-number {
+        color: #94a3b8;
+        font-weight: 700;
+    }
+
+
+    .services-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+
+    .service-card {
+        display: flex;
+        min-height: 82px;
+        align-items: flex-start;
+        gap: 13px;
+        padding: 15px;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 12px;
+        background: rgba(255,255,255,.008);
+        transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    }
+
+
+        .service-card:hover {
+            transform: translateY(-1px);
+            border-color: rgba(148,163,184,.15);
+            background: rgba(255,255,255,.015);
+        }
+
+
+    .service-card-selected {
+        border-color: rgba(203,213,225,.20);
+        background: rgba(203,213,225,.035);
+    }
+
+
+    .service-checkbox {
+        display: flex;
+        width: 19px;
+        height: 19px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+        border: 1px solid rgba(148,163,184,.18);
+        border-radius: 5px;
+        color: #0f172a;
+    }
+
+
+    .service-checkbox-selected {
+        border-color: #cbd5e1;
+        background: #cbd5e1;
+    }
+
+
+    .service-name {
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+
+    .service-description {
+        margin-top: 4px;
+        color: #475569;
+        font-size: 10px;
+        line-height: 1.5;
+    }
+
+
+    .selection-warning {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 17px;
+        padding: 12px 14px;
+        border: 1px solid rgba(250,204,21,.08);
+        border-radius: 10px;
+        background: rgba(250,204,21,.012);
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.6;
+    }
+
+
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,.04);
+    }
+
+
+    .primary-button,
+    .secondary-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 17px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .17s ease, opacity .17s ease;
+    }
+
+
+    .primary-button {
+        border: 1px solid rgba(255,255,255,.14);
+        background: #e2e8f0;
+        color: #111827;
+    }
+
+
+        .primary-button:hover:not(:disabled) {
+            background: #f8fafc;
+        }
+
+
+        .primary-button:disabled {
+            cursor: not-allowed;
+            opacity: .35;
+        }
+
+
+    .secondary-button {
+        border: 1px solid rgba(148,163,184,.10);
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+    }
+
+
+        .secondary-button:hover:not(:disabled) {
+            color: #cbd5e1;
+            background: rgba(255,255,255,.035);
+        }
+
+
+    .loading-state,
+    .empty-state {
+        display: flex;
+        min-height: 260px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #475569;
+        font-size: 12px;
+        text-align: center;
+    }
+
+
+    .services-spinner {
+        width: 25px;
+        height: 25px;
+        margin-bottom: 14px;
+        border: 2px solid rgba(148,163,184,.10);
+        border-top-color: #64748b;
+        border-radius: 9999px;
+        animation: serviceSpin .7s linear infinite;
+    }
+
+
+    .empty-title {
+        color: #94a3b8;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+
+    .empty-description {
+        margin-top: 4px;
+        color: #475569;
+    }
+
+
+    .error-card {
+        padding: 13px 15px;
+        border: 1px solid rgba(248,113,113,.12);
+        border-radius: 11px;
+        background: rgba(248,113,113,.035);
+        color: #fca5a5;
+        font-size: 13px;
+    }
+
+
+    .button-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(15,23,42,.22);
+        border-top-color: #0f172a;
+        border-radius: 9999px;
+        animation: serviceSpin .7s linear infinite;
+    }
+
+
+    @@keyframes serviceSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+
+    @@media (max-width: 700px) {
+
+        .services-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .services-header,
+        .actions {
+            flex-direction: column;
+        }
+    }
+
+</style>
+
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+
+    private SupplierModel? supplier;
+
+    private List<ServiceTypeModel> serviceTypes = [];
+
+    private HashSet<int> selectedServiceIds = [];
+
+
+    private bool isLoading = true;
+
+    private bool isSubmitting;
+
+
+    private string? loadError;
+
+    private string? actionError;
+
+
+    private bool CanSubmit =>
+        AuthState.IsAdministrator
+        && !isSubmitting
+        && selectedServiceIds.Count > 0;
+
+
+    private string SupplierInitial =>
+        string.IsNullOrWhiteSpace(supplier?.Name)
+            ? "P"
+            : supplier.Name[..1].ToUpperInvariant();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+            loadError = null;
+
+
+            if (!AuthState.IsAdministrator)
+                return;
+
+
+            var suppliersTask =
+                SupplierApiService.GetAllAsync();
+
+
+            var serviceTypesTask =
+                ServiceTypeApiService.GetAllAsync();
+
+
+            var currentServicesTask =
+                SupplierApiService.GetServicesAsync(Id);
+
+
+            await Task.WhenAll(
+                suppliersTask,
+                serviceTypesTask,
+                currentServicesTask);
+
+
+            var suppliers =
+                (await suppliersTask).ToList();
+
+
+            supplier =
+                suppliers.FirstOrDefault(
+                    item => item.Id == Id);
+
+
+            if (supplier is null)
+            {
+                loadError =
+                    "El proveedor solicitado no existe.";
+
+                return;
+            }
+
+
+            serviceTypes =
+                (await serviceTypesTask)
+                    .OrderBy(item => item.Name)
+                    .ToList();
+
+
+            selectedServiceIds =
+                (await currentServicesTask)
+                    .Select(item => item.Id)
+                    .ToHashSet();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Navigation.NavigateTo(
+                "/",
+                replace: true);
+        }
+        catch (Exception ex)
+        {
+            loadError =
+                ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private void ToggleService(
+        int serviceId)
+    {
+        actionError = null;
+
+
+        if (selectedServiceIds.Contains(serviceId))
+        {
+            selectedServiceIds.Remove(serviceId);
+        }
+        else
+        {
+            selectedServiceIds.Add(serviceId);
+        }
+    }
+
+
+    private async Task SaveServices()
+    {
+        if (!CanSubmit)
+            return;
+
+
+        try
+        {
+            isSubmitting = true;
+            actionError = null;
+
+
+            var request =
+                new SetSupplierServicesRequest
+                {
+                    ServiceTypeIds =
+                        selectedServiceIds
+                            .OrderBy(id => id)
+                            .ToList()
+                };
+
+
+            await SupplierApiService.SetServicesAsync(
+                Id,
+                request);
+
+
+            Navigation.NavigateTo(
+                $"/suppliers/{Id}/services");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Navigation.NavigateTo(
+                "/",
+                replace: true);
+        }
+        catch (Exception ex)
+        {
+            actionError =
+                ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(
+            "/suppliers");
+    }
+
+
+    private static string GetServiceCardClass(
+        bool selected)
+    {
+        return selected
+            ? "service-card service-card-selected"
+            : "service-card";
+    }
+
+
+    private static string GetCheckboxClass(
+        bool selected)
+    {
+        return selected
+            ? "service-checkbox service-checkbox-selected"
+            : "service-checkbox";
+    }
+
+
+    private static string DisplayValue(
+        string? value,
+        string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : value;
+    }
+
+}

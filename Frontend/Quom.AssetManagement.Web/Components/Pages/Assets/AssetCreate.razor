@@ -1,0 +1,1241 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+@page "/assets/create"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+
+@inject AssetApiService AssetApiService
+@inject SupplierApiService SupplierApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Nuevo activo | Quom</PageTitle>
+
+<div class="create-page">
+
+    <button class="back-link"
+            @onclick="GoBack">
+
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.7"
+             class="h-4 w-4">
+
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+
+        </svg>
+
+        <span>Volver a activos</span>
+
+    </button>
+
+
+    <div class="mt-6">
+
+        <p class="text-xs font-semibold uppercase
+            tracking-[0.24em] text-slate-500">
+            Administración
+        </p>
+
+        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Nuevo activo
+        </h1>
+
+        <p class="mt-2 text-sm text-slate-500">
+            Registra un nuevo elemento dentro del inventario tecnológico.
+        </p>
+
+    </div>
+
+
+    @if (!AuthState.IsAdministrator)
+    {
+        <div class="permission-card mt-8">
+
+            <div class="rule-symbol">
+                !
+            </div>
+
+            <div>
+
+                <p class="text-sm font-medium text-slate-200">
+                    Operación restringida
+                </p>
+
+                <p class="mt-1 text-sm leading-6 text-slate-500">
+                    La creación de activos está disponible únicamente
+                    para usuarios con rol Administrador.
+                </p>
+
+            </div>
+
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="mt-10 flex min-h-72 items-center justify-center">
+
+            <div class="text-center">
+
+                <div class="create-spinner mx-auto"></div>
+
+                <p class="mt-4 text-sm text-slate-500">
+                    Preparando formulario...
+                </p>
+
+            </div>
+
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="error-card mt-8">
+            @loadError
+        </div>
+    }
+    else
+    {
+        <div class="mt-8 grid gap-6 xl:grid-cols-[1fr_340px]">
+
+            @* =====================================================
+               FORMULARIO PRINCIPAL
+               ===================================================== *@
+
+            <section class="form-card">
+
+                <div class="section-header">
+
+                    <div>
+
+                        <p class="section-label">
+                            Información general
+                        </p>
+
+                        <p class="mt-2 text-sm text-slate-500">
+                            Datos principales de identificación del activo.
+                        </p>
+
+                    </div>
+
+                    <span class="required-hint">
+                        * Campos obligatorios
+                    </span>
+
+                </div>
+
+
+                <div class="form-grid mt-7">
+
+                    @* Código *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Código del activo *
+                        </label>
+
+                        <input @bind="assetCode"
+                               maxlength="50"
+                               placeholder="Ej. TI-LAP-001"
+                               class="field-control" />
+
+                    </div>
+
+
+                    @* Serial *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Número de serie
+                        </label>
+
+                        <input @bind="serialNumber"
+                               maxlength="100"
+                               placeholder="Número de serie del fabricante"
+                               class="field-control" />
+
+                    </div>
+
+
+                    @* Categoría *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Categoría *
+                        </label>
+
+                        <input @bind="category"
+                               maxlength="50"
+                               placeholder="Ej. Laptop"
+                               class="field-control" />
+
+                    </div>
+
+
+                    @* Marca *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Marca *
+                        </label>
+
+                        <input @bind="brand"
+                               maxlength="100"
+                               placeholder="Ej. Dell"
+                               class="field-control" />
+
+                    </div>
+
+
+                    @* Modelo *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Modelo
+                        </label>
+
+                        <input @bind="model"
+                               maxlength="100"
+                               placeholder="Ej. Latitude 5440"
+                               class="field-control" />
+
+                    </div>
+
+
+                    @* Ubicación *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Ubicación actual
+                        </label>
+
+                        <input @bind="currentLocation"
+                               maxlength="150"
+                               placeholder="Ej. Almacén TI"
+                               class="field-control" />
+
+                    </div>
+
+
+                    @* Fecha compra *@
+
+                    <div>
+
+                        <label class="field-label">
+                            Fecha de compra
+                        </label>
+
+                        <input type="date"
+                               @bind="purchaseDate"
+                               class="field-control" />
+
+                    </div>
+
+                </div>
+
+
+                @* =================================================
+                   TIPO DE PROPIEDAD
+                   ================================================= *@
+
+                <div class="section-divider"></div>
+
+
+                <div>
+
+                    <p class="section-label">
+                        Propiedad del activo
+                    </p>
+
+                    <p class="mt-2 text-sm text-slate-500">
+                        Define si el activo pertenece a la organización
+                        o se encuentra bajo arrendamiento.
+                    </p>
+
+                </div>
+
+
+                <div class="ownership-grid mt-5">
+
+                    <button type="button"
+                            class="@GetOwnershipClass("Propio")"
+                            @onclick='() => SelectOwnership("Propio")'>
+
+                        <div class="ownership-radio">
+                            @if (ownershipType == "Propio")
+                            {
+                                <div class="ownership-radio-dot"></div>
+                            }
+                        </div>
+
+                        <div class="text-left">
+
+                            <p class="text-sm font-medium text-slate-300">
+                                Propio
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-slate-600">
+                                Activo propiedad de la organización.
+                            </p>
+
+                        </div>
+
+                    </button>
+
+
+                    <button type="button"
+                            class="@GetOwnershipClass("Arrendado")"
+                            @onclick='() => SelectOwnership("Arrendado")'>
+
+                        <div class="ownership-radio">
+                            @if (ownershipType == "Arrendado")
+                            {
+                                <div class="ownership-radio-dot"></div>
+                            }
+                        </div>
+
+                        <div class="text-left">
+
+                            <p class="text-sm font-medium text-slate-300">
+                                Arrendado
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-slate-600">
+                                Activo proporcionado por un proveedor.
+                            </p>
+
+                        </div>
+
+                    </button>
+
+                </div>
+
+
+                @if (ownershipType == "Arrendado")
+                {
+                    <div class="rental-section">
+
+                        <div class="form-grid">
+
+                            <div>
+
+                                <label class="field-label">
+                                    Proveedor *
+                                </label>
+
+                                <select @bind="supplierId"
+                                        class="field-control">
+
+                                    <option value="0">
+                                        Selecciona un proveedor
+                                    </option>
+
+                                    @foreach (var supplier in activeSuppliers)
+                                    {
+                                        <option value="@supplier.Id">
+                                            @supplier.Name
+                                        </option>
+                                    }
+
+                                </select>
+
+
+                                @if (activeSuppliers.Count == 0)
+                                {
+                                    <p class="mt-2 text-xs text-amber-300/70">
+                                        No existen proveedores activos disponibles.
+                                    </p>
+                                }
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="field-label">
+                                    Fin de arrendamiento *
+                                </label>
+
+                                <input type="date"
+                                       @bind="rentalEndDate"
+                                       class="field-control" />
+
+                            </div>
+
+                        </div>
+
+
+                        @if (SelectedSupplier is not null)
+                        {
+                            <div class="supplier-preview">
+
+                                <div class="supplier-icon">
+                                    @GetSupplierInitial()
+                                </div>
+
+                                <div>
+
+                                    <p class="text-sm font-medium text-slate-300">
+                                        @SelectedSupplier.Name
+                                    </p>
+
+                                    <p class="mt-1 text-xs text-slate-600">
+
+                                        @(string.IsNullOrWhiteSpace(SelectedSupplier.ContactName)
+                                            ? "Sin contacto registrado"
+                                            : SelectedSupplier.ContactName)
+
+                                        @if (!string.IsNullOrWhiteSpace(SelectedSupplier.Email))
+                                        {
+                                            <span>
+                                                · @SelectedSupplier.Email
+                                            </span>
+                                        }
+
+                                    </p>
+
+                                </div>
+
+                            </div>
+                        }
+
+                    </div>
+                }
+
+
+                @if (!string.IsNullOrWhiteSpace(actionError))
+                {
+                    <div class="error-card mt-6">
+                        @actionError
+                    </div>
+                }
+
+
+                <div class="mt-8 flex flex-col-reverse gap-3
+                    sm:flex-row sm:justify-end">
+
+                    <button type="button"
+                            class="secondary-button"
+                            disabled="@isSubmitting"
+                            @onclick="GoBack">
+
+                        Cancelar
+
+                    </button>
+
+
+                    <button type="button"
+                            class="primary-button"
+                            disabled="@(!CanSubmit)"
+                            @onclick="CreateAsset">
+
+                        @if (isSubmitting)
+                        {
+                            <span class="button-spinner"></span>
+
+                            <span>
+                                Registrando...
+                            </span>
+                        }
+                        else
+                        {
+                            <span>
+                                Registrar activo
+                            </span>
+                        }
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            @* =====================================================
+               PANEL DE REGLAS
+               ===================================================== *@
+
+            <aside class="rules-column">
+
+                <div class="rules-card">
+
+                    <p class="section-label">
+                        Reglas de registro
+                    </p>
+
+
+                    <div class="rule-list mt-5">
+
+                        <div class="rule-item">
+
+                            <span class="rule-check">
+                                ✓
+                            </span>
+
+                            <p>
+                                El código del activo debe ser único.
+                            </p>
+
+                        </div>
+
+
+                        <div class="rule-item">
+
+                            <span class="rule-check">
+                                ✓
+                            </span>
+
+                            <p>
+                                Categoría y marca son datos obligatorios.
+                            </p>
+
+                        </div>
+
+
+                        <div class="rule-item">
+
+                            <span class="rule-check">
+                                ✓
+                            </span>
+
+                            <p>
+                                Los activos nuevos se incorporan al
+                                inventario para su posterior gestión.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="@GetContextRuleClass()">
+
+                    <div class="rule-symbol">
+                        i
+                    </div>
+
+                    <div>
+
+                        <p class="text-sm font-medium text-slate-300">
+                            @GetContextRuleTitle()
+                        </p>
+
+                        <p class="mt-1 text-xs leading-5 text-slate-600">
+                            @GetContextRuleDescription()
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <p class="section-label">
+                        Resumen
+                    </p>
+
+
+                    <div class="summary-list mt-5">
+
+                        <div>
+                            <span>Código</span>
+                            <strong>@DisplayValue(assetCode)</strong>
+                        </div>
+
+                        <div>
+                            <span>Activo</span>
+                            <strong>
+                                @GetAssetDescription()
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Propiedad</span>
+                            <strong>@DisplayValue(ownershipType)</strong>
+                        </div>
+
+                        @if (ownershipType == "Arrendado")
+                        {
+                            <div>
+                                <span>Proveedor</span>
+
+                                <strong>
+                                    @(SelectedSupplier?.Name ?? "Pendiente")
+                                </strong>
+                            </div>
+                        }
+
+                    </div>
+
+                </div>
+
+            </aside>
+
+        </div>
+    }
+
+</div>
+
+
+<style>
+
+    .create-page {
+        width: 100%;
+        max-width: 1320px;
+        margin-inline: auto;
+    }
+
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 13px;
+        transition: color .16s ease;
+    }
+
+
+        .back-link:hover {
+            color: #cbd5e1;
+        }
+
+
+    .form-card,
+    .rules-card,
+    .summary-card {
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+
+    .form-card {
+        padding: 24px;
+    }
+
+
+    .rules-card,
+    .summary-card {
+        padding: 20px;
+    }
+
+
+    .rules-column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-self: start;
+    }
+
+
+    .section-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+
+    .section-label,
+    .field-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+
+    .required-hint {
+        color: #475569;
+        font-size: 10px;
+    }
+
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap: 20px;
+    }
+
+
+    .field-control {
+        width: 100%;
+        margin-top: 9px;
+        padding: 12px 13px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 11px;
+        outline: none;
+        background: #0d1014;
+        color: #cbd5e1;
+        font-size: 13px;
+        transition: border-color .17s ease, background .17s ease;
+    }
+
+
+        .field-control:focus {
+            border-color: rgba(148,163,184,.30);
+            background: #0f1216;
+        }
+
+
+        .field-control::placeholder {
+            color: #334155;
+        }
+
+
+    .section-divider {
+        height: 1px;
+        margin: 30px 0;
+        background: rgba(255,255,255,.045);
+    }
+
+
+    .ownership-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap: 12px;
+    }
+
+
+    .ownership-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 13px;
+        min-height: 82px;
+        padding: 15px;
+        border: 1px solid rgba(148,163,184,.09);
+        border-radius: 12px;
+        background: rgba(255,255,255,.01);
+        transition: border-color .17s ease, background .17s ease;
+    }
+
+
+        .ownership-option:hover {
+            border-color: rgba(148,163,184,.18);
+            background: rgba(255,255,255,.018);
+        }
+
+
+    .ownership-selected {
+        border-color: rgba(203,213,225,.24);
+        background: rgba(203,213,225,.035);
+    }
+
+
+    .ownership-radio {
+        display: flex;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+        border: 1px solid rgba(148,163,184,.25);
+        border-radius: 9999px;
+    }
+
+
+    .ownership-radio-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: #cbd5e1;
+    }
+
+
+    .rental-section {
+        margin-top: 18px;
+        padding: 18px;
+        border: 1px solid rgba(148,163,184,.07);
+        border-radius: 13px;
+        background: rgba(0,0,0,.11);
+    }
+
+
+    .supplier-preview {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 15px;
+        padding: 12px 14px;
+        border: 1px solid rgba(255,255,255,.045);
+        border-radius: 11px;
+        background: rgba(255,255,255,.012);
+    }
+
+
+    .supplier-icon {
+        display: flex;
+        width: 34px;
+        height: 34px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 9px;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .rule-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+
+    .rule-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+
+    .rule-check {
+        color: #86efac;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .context-rule,
+    .context-rule-rental,
+    .permission-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid rgba(148,163,184,.07);
+        border-radius: 14px;
+        background: rgba(255,255,255,.012);
+    }
+
+
+    .context-rule-rental {
+        border-color: rgba(250,204,21,.08);
+        background: rgba(250,204,21,.015);
+    }
+
+
+    .permission-card {
+        border-color: rgba(248,113,113,.10);
+        background: rgba(248,113,113,.025);
+    }
+
+
+    .rule-symbol {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.13);
+        border-radius: 7px;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .summary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+    }
+
+
+        .summary-list > div {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,.035);
+            font-size: 11px;
+        }
+
+
+        .summary-list span {
+            color: #475569;
+        }
+
+
+        .summary-list strong {
+            max-width: 170px;
+            overflow: hidden;
+            color: #94a3b8;
+            font-weight: 500;
+            text-align: right;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+
+    .error-card {
+        padding: 13px 15px;
+        border: 1px solid rgba(248,113,113,.12);
+        border-radius: 11px;
+        background: rgba(248,113,113,.035);
+        color: #fca5a5;
+        font-size: 13px;
+    }
+
+
+    .primary-button,
+    .secondary-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 17px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .17s ease, opacity .17s ease;
+    }
+
+
+    .primary-button {
+        border: 1px solid rgba(255,255,255,.14);
+        background: #e2e8f0;
+        color: #111827;
+    }
+
+
+        .primary-button:hover:not(:disabled) {
+            background: #f8fafc;
+        }
+
+
+        .primary-button:disabled {
+            cursor: not-allowed;
+            opacity: .35;
+        }
+
+
+    .secondary-button {
+        border: 1px solid rgba(148,163,184,.10);
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+    }
+
+
+        .secondary-button:hover:not(:disabled) {
+            color: #cbd5e1;
+            background: rgba(255,255,255,.035);
+        }
+
+
+    .create-spinner,
+    .button-spinner {
+        border: 2px solid rgba(148,163,184,.12);
+        border-top-color: #94a3b8;
+        border-radius: 9999px;
+        animation: createSpin .7s linear infinite;
+    }
+
+
+    .create-spinner {
+        width: 26px;
+        height: 26px;
+    }
+
+
+    .button-spinner {
+        width: 14px;
+        height: 14px;
+        border-color: rgba(15,23,42,.22);
+        border-top-color: #0f172a;
+    }
+
+
+    @@keyframes createSpin {
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+
+    @@media (max-width: 700px) {
+
+        .form-grid,
+        .ownership-grid {
+            grid-template-columns: 1fr;
+        }
+
+
+        .section-header {
+            flex-direction: column;
+        }
+    }
+
+</style>
+
+
+@code {
+
+    private string assetCode = string.Empty;
+    private string serialNumber = string.Empty;
+    private string category = string.Empty;
+    private string brand = string.Empty;
+    private string model = string.Empty;
+
+    private string ownershipType = "Propio";
+
+    private int supplierId;
+
+    private string currentLocation = string.Empty;
+
+    private DateTime? purchaseDate;
+    private DateTime? rentalEndDate;
+
+
+    private List<SupplierModel> activeSuppliers = [];
+
+
+    private bool isLoading = true;
+    private bool isSubmitting;
+
+    private string? loadError;
+    private string? actionError;
+
+
+    private SupplierModel? SelectedSupplier =>
+        activeSuppliers.FirstOrDefault(
+            supplier => supplier.Id == supplierId);
+
+
+    private bool CanSubmit =>
+        AuthState.IsAdministrator
+        && !isSubmitting
+        && !string.IsNullOrWhiteSpace(assetCode)
+        && !string.IsNullOrWhiteSpace(category)
+        && !string.IsNullOrWhiteSpace(brand)
+        && !string.IsNullOrWhiteSpace(ownershipType)
+        && (
+            ownershipType != "Arrendado"
+            ||
+            (
+                supplierId > 0
+                && rentalEndDate.HasValue
+            )
+        );
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            if (!AuthState.IsAdministrator)
+                return;
+
+            var suppliers =
+                await SupplierApiService.GetAllAsync();
+
+            activeSuppliers =
+                suppliers
+                    .Where(supplier => supplier.IsActive)
+                    .OrderBy(supplier => supplier.Name)
+                    .ToList();
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private void SelectOwnership(string type)
+    {
+        ownershipType = type;
+
+        actionError = null;
+
+        if (type == "Propio")
+        {
+            supplierId = 0;
+            rentalEndDate = null;
+        }
+    }
+
+
+    private async Task CreateAsset()
+    {
+        if (!CanSubmit)
+            return;
+
+        try
+        {
+            isSubmitting = true;
+            actionError = null;
+
+            var request =
+                new CreateAssetRequest
+                {
+                    AssetCode =
+                        assetCode.Trim(),
+
+                    SerialNumber =
+                        Normalize(serialNumber),
+
+                    Category =
+                        category.Trim(),
+
+                    Brand =
+                        brand.Trim(),
+
+                    Model =
+                        Normalize(model),
+
+                    OwnershipType =
+                        ownershipType,
+
+                    SupplierId =
+                        ownershipType == "Arrendado"
+                            ? supplierId
+                            : null,
+
+                    CurrentLocation =
+                        Normalize(currentLocation),
+
+                    PurchaseDate =
+                        purchaseDate,
+
+                    RentalEndDate =
+                        ownershipType == "Arrendado"
+                            ? rentalEndDate
+                            : null
+                };
+
+
+            var id =
+                await AssetApiService.CreateAsync(request);
+
+
+            Navigation.NavigateTo(
+                $"/assets/{id}/history");
+        }
+        catch (Exception ex)
+        {
+            actionError = ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/assets");
+    }
+
+
+    private string GetOwnershipClass(string type)
+    {
+        return ownershipType == type
+            ? "ownership-option ownership-selected"
+            : "ownership-option";
+    }
+
+
+    private string GetContextRuleClass()
+    {
+        return ownershipType == "Arrendado"
+            ? "context-rule-rental"
+            : "context-rule";
+    }
+
+
+    private string GetContextRuleTitle()
+    {
+        return ownershipType == "Arrendado"
+            ? "Activo arrendado"
+            : "Activo propio";
+    }
+
+
+    private string GetContextRuleDescription()
+    {
+        return ownershipType == "Arrendado"
+            ? "El proveedor y la fecha de término del arrendamiento son obligatorios para completar el registro."
+            : "Los activos propios no requieren proveedor ni fecha de término de arrendamiento.";
+    }
+
+
+    private string GetSupplierInitial()
+    {
+        if (SelectedSupplier is null ||
+            string.IsNullOrWhiteSpace(SelectedSupplier.Name))
+        {
+            return "P";
+        }
+
+        return SelectedSupplier.Name[..1]
+            .ToUpperInvariant();
+    }
+
+
+    private string GetAssetDescription()
+    {
+        var description =
+            $"{brand.Trim()} {model.Trim()}".Trim();
+
+        return string.IsNullOrWhiteSpace(description)
+            ? "Pendiente"
+            : description;
+    }
+
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Pendiente"
+            : value;
+    }
+
+
+    private static string? Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
+    }
+
+}

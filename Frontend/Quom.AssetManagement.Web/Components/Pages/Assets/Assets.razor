@@ -1,0 +1,1198 @@
+﻿@using Quom.AssetManagement.Web.Components.Layout
+
+@page "/assets"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+
+@inject AssetApiService AssetApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Activos | Quom</PageTitle>
+
+<div class="assets-page">
+
+    @* ======================================================
+       ENCABEZADO
+       ====================================================== *@
+    <section class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                Inventario
+            </p>
+
+            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-white">
+                Activos
+            </h1>
+
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Consulta y administra el inventario de activos tecnológicos.
+            </p>
+        </div>
+
+        @if (AuthState.IsAdministrator)
+        {
+            <button class="primary-action"
+                    @onclick="GoToCreate">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.7"
+                     class="h-4 w-4">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+
+                <span>Nuevo activo</span>
+
+            </button>
+        }
+
+    </section>
+
+
+    @* ======================================================
+       REGLAS / AYUDA
+       ====================================================== *@
+    <section class="business-rule mt-7">
+
+        <div class="rule-icon">
+            i
+        </div>
+
+        <div>
+            <p class="text-sm font-medium text-slate-300">
+                Reglas de operación
+            </p>
+
+            <p class="mt-1 text-sm leading-6 text-slate-500">
+                Un activo sólo puede asignarse cuando se encuentra
+                <span class="text-slate-300">Disponible</span>.
+                Los activos retirados no pueden reactivarse y el estado
+                <span class="text-slate-300">Asignado</span>
+                se establece únicamente mediante el proceso de asignación.
+            </p>
+        </div>
+
+    </section>
+
+
+    @* ======================================================
+       FILTROS
+       ====================================================== *@
+    <section class="filter-card mt-7">
+
+        <div class="grid gap-4 xl:grid-cols-[1fr_220px_220px_auto]">
+
+            <div class="search-input">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.7"
+                     class="h-4 w-4 shrink-0 text-slate-500">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
+                </svg>
+
+                <input @bind="search"
+                       @bind:event="oninput"
+                       placeholder="Buscar por código, serie, marca o modelo..."
+                       class="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-600" />
+
+            </div>
+
+            <select @bind="status"
+                    class="filter-select">
+                <option value="">Todos los estados</option>
+                <option value="Disponible">Disponible</option>
+                <option value="Asignado">Asignado</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+                <option value="Retirado">Retirado</option>
+            </select>
+
+            <select @bind="category"
+                    class="filter-select">
+                <option value="">Todas las categorías</option>
+
+                @foreach (var item in categories)
+                {
+                    <option value="@item">@item</option>
+                }
+
+            </select>
+
+            <div class="flex gap-2">
+
+                <button class="secondary-action"
+                        disabled="@isLoading"
+                        @onclick="ApplyFilters">
+                    Filtrar
+                </button>
+
+                <button class="ghost-action"
+                        disabled="@isLoading"
+                        @onclick="ClearFilters"
+                        title="Limpiar filtros">
+
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.7"
+                         class="h-4 w-4">
+                        <path stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M4.5 4.5l15 15m0-15-15 15" />
+                    </svg>
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    @* ======================================================
+       RESUMEN
+       ====================================================== *@
+    <section class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+
+        <div class="metric-card">
+            <p class="metric-label">Registros</p>
+            <p class="metric-value">@TotalRecords</p>
+        </div>
+
+        <div class="metric-card">
+            <p class="metric-label">Página</p>
+            <p class="metric-value">
+                @CurrentPage
+                <span class="text-base font-normal text-slate-600">
+                    / @TotalPages
+                </span>
+            </p>
+        </div>
+
+        <div class="metric-card">
+            <p class="metric-label">Rol actual</p>
+            <p class="mt-2 truncate text-sm font-medium text-slate-300">
+                @AuthState.Role
+            </p>
+        </div>
+
+        <div class="metric-card">
+            <p class="metric-label">Tamaño de página</p>
+            <p class="metric-value">@pageSize</p>
+        </div>
+
+    </section>
+
+
+    @* ======================================================
+       CONTENIDO
+       ====================================================== *@
+    <section class="table-card mt-6">
+
+        @if (isLoading)
+        {
+            <div class="flex min-h-80 items-center justify-center">
+
+                <div class="text-center">
+
+                    <div class="table-spinner mx-auto"></div>
+
+                    <p class="mt-4 text-sm text-slate-500">
+                        Consultando inventario...
+                    </p>
+
+                </div>
+
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="p-8">
+
+                <div class="rounded-xl border border-red-500/15
+                    bg-red-500/[0.05] px-5 py-4">
+
+                    <p class="text-sm font-medium text-red-300">
+                        No fue posible cargar los activos
+                    </p>
+
+                    <p class="mt-1 text-sm text-red-400/70">
+                        @errorMessage
+                    </p>
+
+                </div>
+
+            </div>
+        }
+        else if (result is null || !result.Items.Any())
+        {
+            <div class="flex min-h-80 items-center justify-center">
+
+                <div class="max-w-sm text-center">
+
+                    <div class="empty-icon mx-auto">
+
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="1.5"
+                             class="h-6 w-6">
+                            <path stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  d="M3.75 6.75h16.5M5.25 6.75v11.5A1.75 1.75 0 0 0 7 20h10a1.75 1.75 0 0 0 1.75-1.75V6.75M9 10.5h6" />
+                        </svg>
+
+                    </div>
+
+                    <p class="mt-4 text-sm font-medium text-slate-300">
+                        No se encontraron activos
+                    </p>
+
+                    <p class="mt-2 text-sm leading-6 text-slate-600">
+                        Modifica los filtros de búsqueda para consultar otros registros.
+                    </p>
+
+                </div>
+
+            </div>
+        }
+        else
+        {
+            <div class="overflow-x-auto">
+
+                <table class="asset-table">
+
+                    <thead>
+                        <tr>
+                            <th>Activo</th>
+                            <th>Categoría</th>
+                            <th>Propiedad</th>
+                            <th>Estado</th>
+                            <th>Ubicación</th>
+                            <th class="text-right">Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (var asset in result.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    <div class="min-w-52">
+
+                                        <div class="flex items-center gap-3">
+
+                                            <div class="asset-icon">
+                                                @GetAssetInitial(asset)
+                                            </div>
+
+                                            <div>
+
+                                                <p class="font-medium text-slate-200">
+                                                    @asset.AssetCode
+                                                </p>
+
+                                                <p class="mt-1 text-xs text-slate-500">
+                                                    @asset.Brand
+                                                    @if (!string.IsNullOrWhiteSpace(asset.Model))
+                                                    {
+                                                        <span>@asset.Model</span>
+                                                    }
+                                                </p>
+
+                                                @if (!string.IsNullOrWhiteSpace(asset.SerialNumber))
+                                                {
+                                                    <p class="mt-1 font-mono text-[11px] text-slate-700">
+                                                        S/N @asset.SerialNumber
+                                                    </p>
+                                                }
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="text-sm text-slate-400">
+                                        @asset.Category
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div>
+                                        <p class="text-sm text-slate-400">
+                                            @asset.OwnershipType
+                                        </p>
+
+                                        @if (asset.OwnershipType == "Arrendado" &&
+                                             !string.IsNullOrWhiteSpace(asset.SupplierName))
+                                        {
+                                            <p class="mt-1 text-xs text-slate-600">
+                                                @asset.SupplierName
+                                            </p>
+                                        }
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="@GetStatusClass(asset.Status)">
+                                        <span class="status-dot"></span>
+                                        @asset.Status
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="text-sm text-slate-400">
+                                        @(string.IsNullOrWhiteSpace(asset.CurrentLocation)
+                                            ? "Sin ubicación"
+                                            : asset.CurrentLocation)
+                                    </span>
+                                </td>
+
+                                <td>
+
+                                    <div class="flex items-center justify-end gap-1">
+
+                                        <button class="table-action"
+                                                title="Ver historial"
+                                                @onclick="() => GoToHistory(asset.Id)">
+
+                                            <svg viewBox="0 0 24 24"
+                                                 fill="none"
+                                                 stroke="currentColor"
+                                                 stroke-width="1.6"
+                                                 class="h-4 w-4">
+                                                <path stroke-linecap="round"
+                                                      stroke-linejoin="round"
+                                                      d="M12 8.25v4.5l3 1.5M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+                                            </svg>
+
+                                        </button>
+
+
+                                        @if (asset.Status == "Disponible")
+                                        {
+                                            <button class="table-action"
+                                                    title="Asignar activo"
+                                                    @onclick="() => GoToAssign(asset.Id)">
+
+                                                <svg viewBox="0 0 24 24"
+                                                     fill="none"
+                                                     stroke="currentColor"
+                                                     stroke-width="1.6"
+                                                     class="h-4 w-4">
+                                                    <path stroke-linecap="round"
+                                                          stroke-linejoin="round"
+                                                          d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0M19.5 8.25v4.5m2.25-2.25h-4.5" />
+                                                </svg>
+
+                                            </button>
+                                        }
+
+
+                                        @if (asset.Status == "Asignado")
+                                        {
+                                            <button class="table-action"
+                                                    title="Registrar devolución"
+                                                    @onclick="() => GoToReturn(asset.Id)">
+
+                                                <svg viewBox="0 0 24 24"
+                                                     fill="none"
+                                                     stroke="currentColor"
+                                                     stroke-width="1.6"
+                                                     class="h-4 w-4">
+                                                    <path stroke-linecap="round"
+                                                          stroke-linejoin="round"
+                                                          d="M9 15 3.75 9.75 9 4.5M4.5 9.75h10.125A5.625 5.625 0 0 1 20.25 15.375" />
+                                                </svg>
+
+                                            </button>
+                                        }
+
+
+                                        @if (AuthState.IsAdministrator)
+                                        {
+                                            <button class="table-action"
+                                                    title="@GetEditTooltip(asset)"
+                                                    disabled="@(asset.Status == "Retirado")"
+                                                    @onclick="() => GoToEdit(asset.Id)">
+
+                                                <svg viewBox="0 0 24 24"
+                                                     fill="none"
+                                                     stroke="currentColor"
+                                                     stroke-width="1.6"
+                                                     class="h-4 w-4">
+                                                    <path stroke-linecap="round"
+                                                          stroke-linejoin="round"
+                                                          d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.862 4.487ZM19.5 7.125 16.875 4.5M18 14.25v4.125A1.875 1.875 0 0 1 16.125 20.25H5.625A1.875 1.875 0 0 1 3.75 18.375V7.875A1.875 1.875 0 0 1 5.625 6H9.75" />
+                                                </svg>
+
+                                            </button>
+                                        }
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            @* ==================================================
+               PAGINACIÓN
+               ================================================== *@
+            <div class="flex flex-col gap-4 border-t border-white/[0.05]
+                px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                <p class="text-xs text-slate-600">
+                    Mostrando
+                    <span class="text-slate-400">@FirstVisibleRecord</span>
+                    –
+                    <span class="text-slate-400">@LastVisibleRecord</span>
+                    de
+                    <span class="text-slate-400">@TotalRecords</span>
+                    registros
+                </p>
+
+                <div class="flex items-center gap-2">
+
+                    <button class="pagination-button"
+                            disabled="@(CurrentPage <= 1 || isLoading)"
+                            @onclick="PreviousPage">
+                        Anterior
+                    </button>
+
+                    <div class="page-indicator">
+                        @CurrentPage
+                    </div>
+
+                    <button class="pagination-button"
+                            disabled="@(CurrentPage >= TotalPages || isLoading)"
+                            @onclick="NextPage">
+                        Siguiente
+                    </button>
+
+                </div>
+
+            </div>
+        }
+
+    </section>
+
+</div>
+
+
+<style>
+
+    .assets-page {
+        width: 100%;
+        max-width: 1680px;
+        margin-inline: auto;
+    }
+
+
+    /* ======================================================
+           REGLA DE NEGOCIO
+           ====================================================== */
+
+    .business-rule {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 15px 17px;
+        border: 1px solid rgba(148,163,184,.09);
+        border-radius: 14px;
+        background: linear-gradient( 120deg, rgba(255,255,255,.025), rgba(255,255,255,.009) );
+    }
+
+
+    .rule-icon {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+        border: 1px solid rgba(148,163,184,.14);
+        border-radius: 7px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    /* ======================================================
+           FILTROS
+           ====================================================== */
+
+    .filter-card {
+        padding: 16px;
+        border: 1px solid rgba(255,255,255,.06);
+        border-radius: 16px;
+        background: rgba(255,255,255,.018);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.018);
+    }
+
+
+    .search-input {
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+        gap: 11px;
+        padding-inline: 14px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 11px;
+        background: rgba(0,0,0,.16);
+        transition: border-color .18s ease, background .18s ease;
+    }
+
+
+        .search-input:focus-within {
+            border-color: rgba(148,163,184,.27);
+            background: rgba(255,255,255,.017);
+        }
+
+
+    .filter-select {
+        width: 100%;
+        min-height: 44px;
+        padding: 0 13px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 11px;
+        outline: none;
+        background: #0d1014;
+        color: #94a3b8;
+        font-size: 13px;
+        transition: border-color .18s ease;
+    }
+
+
+        .filter-select:focus {
+            border-color: rgba(148,163,184,.28);
+        }
+
+
+    /* ======================================================
+           BOTONES SUPERIORES
+           ====================================================== */
+
+    .primary-action,
+    .secondary-action,
+    .ghost-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+    }
+
+
+    .primary-action {
+        min-height: 42px;
+        gap: 8px;
+        padding: 0 16px;
+        border: 1px solid rgba(255,255,255,.14);
+        background: #e2e8f0;
+        color: #111827;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 7px 20px rgba(0,0,0,.18);
+    }
+
+
+        .primary-action:hover {
+            transform: translateY(-1px);
+            background: #f1f5f9;
+        }
+
+
+    .secondary-action {
+        min-height: 44px;
+        padding: 0 17px;
+        border: 1px solid rgba(148,163,184,.13);
+        background: rgba(255,255,255,.045);
+        color: #cbd5e1;
+    }
+
+
+        .secondary-action:hover:not(:disabled) {
+            border-color: rgba(148,163,184,.24);
+            background: rgba(255,255,255,.07);
+        }
+
+
+    .ghost-action {
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(148,163,184,.10);
+        background: transparent;
+        color: #64748b;
+    }
+
+
+        .ghost-action:hover:not(:disabled) {
+            background: rgba(255,255,255,.035);
+            color: #cbd5e1;
+        }
+
+
+        .secondary-action:disabled,
+        .ghost-action:disabled {
+            cursor: not-allowed;
+            opacity: .4;
+        }
+
+
+    /* ======================================================
+           MÉTRICAS
+           ====================================================== */
+
+    .metric-card {
+        min-height: 88px;
+        padding: 16px 18px;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 14px;
+        background: linear-gradient( 135deg, rgba(255,255,255,.025), rgba(255,255,255,.01) );
+    }
+
+
+    .metric-label {
+        color: #475569;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+    }
+
+
+    .metric-value {
+        margin-top: 5px;
+        color: #e2e8f0;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -.025em;
+    }
+
+
+    /* ======================================================
+           TABLA
+           ====================================================== */
+
+    .table-card {
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.06);
+        border-radius: 16px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.018), rgba(255,255,255,.006) );
+        box-shadow: 0 20px 60px rgba(0,0,0,.13);
+    }
+
+
+    .asset-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+
+        .asset-table thead {
+            background: rgba(255,255,255,.018);
+        }
+
+
+        .asset-table th {
+            height: 48px;
+            padding: 0 18px;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 700;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            border-bottom: 1px solid rgba(255,255,255,.055);
+        }
+
+
+        .asset-table td {
+            padding: 15px 18px;
+            border-bottom: 1px solid rgba(255,255,255,.042);
+            vertical-align: middle;
+        }
+
+
+        .asset-table tbody tr {
+            transition: background .16s ease;
+        }
+
+
+            .asset-table tbody tr:hover {
+                background: rgba(255,255,255,.016);
+            }
+
+
+            .asset-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+
+
+    .asset-icon {
+        display: flex;
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 10px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.035), rgba(255,255,255,.008) );
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+
+    /* ======================================================
+           ESTADOS
+           ====================================================== */
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 9px;
+        border: 1px solid;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+
+    .status-dot {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 9999px;
+        background: currentColor;
+    }
+
+
+    .status-available {
+        border-color: rgba(74,222,128,.13);
+        background: rgba(74,222,128,.055);
+        color: #86efac;
+    }
+
+
+    .status-assigned {
+        border-color: rgba(96,165,250,.14);
+        background: rgba(96,165,250,.055);
+        color: #93c5fd;
+    }
+
+
+    .status-maintenance {
+        border-color: rgba(250,204,21,.13);
+        background: rgba(250,204,21,.045);
+        color: #fde68a;
+    }
+
+
+    .status-retired {
+        border-color: rgba(148,163,184,.10);
+        background: rgba(148,163,184,.035);
+        color: #64748b;
+    }
+
+
+    /* ======================================================
+           ACCIONES DE TABLA
+           ====================================================== */
+
+    .table-action {
+        display: inline-flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        background: transparent;
+        color: #64748b;
+        transition: color .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+
+        .table-action:hover:not(:disabled) {
+            border-color: rgba(148,163,184,.10);
+            background: rgba(255,255,255,.035);
+            color: #cbd5e1;
+        }
+
+
+        .table-action:disabled {
+            cursor: not-allowed;
+            opacity: .22;
+        }
+
+
+    /* ======================================================
+           PAGINACIÓN
+           ====================================================== */
+
+    .pagination-button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid rgba(148,163,184,.09);
+        border-radius: 9px;
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+        font-size: 12px;
+        transition: background .16s ease, color .16s ease, border-color .16s ease;
+    }
+
+
+        .pagination-button:hover:not(:disabled) {
+            border-color: rgba(148,163,184,.17);
+            background: rgba(255,255,255,.035);
+            color: #cbd5e1;
+        }
+
+
+        .pagination-button:disabled {
+            cursor: not-allowed;
+            opacity: .3;
+        }
+
+
+    .page-indicator {
+        display: flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 9px;
+        background: rgba(255,255,255,.035);
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+
+    /* ======================================================
+           ESTADOS DE CARGA
+           ====================================================== */
+
+    .table-spinner {
+        width: 26px;
+        height: 26px;
+        border: 2px solid rgba(148,163,184,.12);
+        border-top-color: #94a3b8;
+        border-radius: 9999px;
+        animation: assetSpin .7s linear infinite;
+    }
+
+
+    .empty-icon {
+        display: flex;
+        width: 48px;
+        height: 48px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.08);
+        border-radius: 13px;
+        background: rgba(255,255,255,.018);
+        color: #475569;
+    }
+
+
+    @@keyframes assetSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+
+    @@media (prefers-reduced-motion: reduce) {
+
+        .table-spinner {
+            animation-duration: 1.4s;
+        }
+    }
+
+</style>
+
+
+@code {
+
+    private PagedResult<AssetModel>? result;
+
+    private string search = string.Empty;
+    private string status = string.Empty;
+    private string category = string.Empty;
+
+    private bool isLoading;
+    private string? errorMessage;
+
+    private int currentPage = 1;
+
+    private const int pageSize = 10;
+
+
+    /*
+     * Por ahora se construye desde los datos cargados.
+     * Luego podemos convertirlo en catálogo si queremos.
+     */
+    private readonly List<string> categories =
+    [
+        "Laptop",
+        "Monitor",
+        "Celular",
+        "Impresora",
+        "Periférico"
+    ];
+
+
+    private int CurrentPage =>
+        result?.PageNumber > 0
+            ? result.PageNumber
+            : currentPage;
+
+
+    private int TotalRecords =>
+        result?.TotalRecords ?? 0;
+
+
+    private int TotalPages
+    {
+        get
+        {
+            if (TotalRecords == 0)
+                return 1;
+
+            return (int)Math.Ceiling(
+                TotalRecords / (double)pageSize);
+        }
+    }
+
+
+    private int FirstVisibleRecord =>
+        TotalRecords == 0
+            ? 0
+            : ((CurrentPage - 1) * pageSize) + 1;
+
+
+    private int LastVisibleRecord =>
+        Math.Min(
+            CurrentPage * pageSize,
+            TotalRecords);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAssetsAsync();
+    }
+
+
+    private async Task LoadAssetsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var request =
+                new AssetSearchRequest
+                {
+                    Search =
+                        string.IsNullOrWhiteSpace(search)
+                            ? null
+                            : search.Trim(),
+
+                    Status =
+                        string.IsNullOrWhiteSpace(status)
+                            ? null
+                            : status,
+
+                    Category =
+                        string.IsNullOrWhiteSpace(category)
+                            ? null
+                            : category,
+
+                    PageNumber = currentPage,
+
+                    PageSize = pageSize
+                };
+
+            result =
+                await AssetApiService.SearchAsync(
+                    request);
+
+            if (result is null)
+            {
+                Navigation.NavigateTo("/");
+
+                return;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            errorMessage =
+                ex.Message;
+        }
+        catch
+        {
+            errorMessage =
+                "Ocurrió un error al consultar el inventario.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private async Task ApplyFilters()
+    {
+        currentPage = 1;
+
+        await LoadAssetsAsync();
+    }
+
+
+    private async Task ClearFilters()
+    {
+        search = string.Empty;
+        status = string.Empty;
+        category = string.Empty;
+
+        currentPage = 1;
+
+        await LoadAssetsAsync();
+    }
+
+
+    private async Task PreviousPage()
+    {
+        if (currentPage <= 1)
+            return;
+
+        currentPage--;
+
+        await LoadAssetsAsync();
+    }
+
+
+    private async Task NextPage()
+    {
+        if (currentPage >= TotalPages)
+            return;
+
+        currentPage++;
+
+        await LoadAssetsAsync();
+    }
+
+
+    private string GetStatusClass(
+        string statusValue)
+    {
+        return statusValue switch
+        {
+            "Disponible" =>
+                "status-badge status-available",
+
+            "Asignado" =>
+                "status-badge status-assigned",
+
+            "Mantenimiento" =>
+                "status-badge status-maintenance",
+
+            "Retirado" =>
+                "status-badge status-retired",
+
+            _ =>
+                "status-badge status-retired"
+        };
+    }
+
+
+    private static string GetAssetInitial(
+        AssetModel asset)
+    {
+        if (!string.IsNullOrWhiteSpace(asset.Category))
+        {
+            return asset.Category[..1]
+                .ToUpperInvariant();
+        }
+
+        return "A";
+    }
+
+
+    private static string GetEditTooltip(
+        AssetModel asset)
+    {
+        return asset.Status == "Retirado"
+            ? "Los activos retirados no pueden reactivarse."
+            : "Editar activo";
+    }
+
+
+    private void GoToCreate()
+    {
+        Navigation.NavigateTo(
+            "/assets/create");
+    }
+
+
+    private void GoToEdit(int id)
+    {
+        Navigation.NavigateTo(
+            $"/assets/{id}/edit");
+    }
+
+
+    private void GoToAssign(int id)
+    {
+        Navigation.NavigateTo(
+            $"/assets/{id}/assign");
+    }
+
+
+    private void GoToReturn(int id)
+    {
+        Navigation.NavigateTo(
+            $"/assets/{id}/return");
+    }
+
+
+    private void GoToHistory(int id)
+    {
+        Navigation.NavigateTo(
+            $"/assets/{id}/history");
+    }
+
+}

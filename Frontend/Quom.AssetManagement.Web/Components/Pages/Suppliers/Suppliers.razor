@@ -1,0 +1,1127 @@
+﻿@page "/suppliers"
+@layout MainLayout
+
+@using Quom.AssetManagement.Web.Components.Layout
+@using Quom.AssetManagement.Web.Models
+@using Quom.AssetManagement.Web.Services
+@using Quom.AssetManagement.Web.State
+
+@inject SupplierApiService SupplierApiService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Proveedores | Quom</PageTitle>
+
+<div class="suppliers-page">
+
+    <div class="page-header">
+
+        <div>
+
+            <p class="page-eyebrow">
+                Administración
+            </p>
+
+            <h1 class="page-title">
+                Proveedores
+            </h1>
+
+            <p class="page-description">
+                Consulta proveedores y administra los servicios asociados.
+            </p>
+
+        </div>
+
+        @if (AuthState.IsAdministrator)
+        {
+            <button class="primary-action"
+                    @onclick="GoToCreate">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.8"
+                     class="h-4 w-4">
+
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M12 5v14M5 12h14" />
+
+                </svg>
+
+                <span>
+                    Nuevo proveedor
+                </span>
+
+            </button>
+        }
+
+    </div>
+
+
+    <div class="summary-grid">
+
+        <div class="summary-card">
+
+            <p class="summary-label">
+                Total proveedores
+            </p>
+
+            <p class="summary-value">
+                @suppliers.Count
+            </p>
+
+            <p class="summary-description">
+                Registros existentes
+            </p>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p class="summary-label">
+                Activos
+            </p>
+
+            <p class="summary-value">
+                @ActiveCount
+            </p>
+
+            <p class="summary-description">
+                Proveedores habilitados
+            </p>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p class="summary-label">
+                Inactivos
+            </p>
+
+            <p class="summary-value">
+                @InactiveCount
+            </p>
+
+            <p class="summary-description">
+                Registros no disponibles
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="business-rule">
+
+        <div class="business-rule-marker">
+            i
+        </div>
+
+        <div>
+
+            <p class="business-rule-title">
+                Servicios de proveedor
+            </p>
+
+            <p class="business-rule-text">
+                Cada proveedor puede tener uno o más tipos de servicio asociados.
+                @if (!AuthState.IsAdministrator)
+                {
+                    <span>
+                        Tu perfil cuenta con acceso de consulta.
+                    </span>
+                }
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <section class="suppliers-card">
+
+        <div class="toolbar">
+
+            <div class="search-wrapper">
+
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.6"
+                     class="search-icon">
+
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="m21 21-4.35-4.35m1.35-5.4a6.75 6.75 0 1 1-13.5 0 6.75 6.75 0 0 1 13.5 0Z" />
+
+                </svg>
+
+                <input class="search-input"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       placeholder="Buscar por nombre, RFC, contacto o correo..." />
+
+            </div>
+
+            <div class="results-count">
+
+                <span class="results-number">
+                    @FilteredSuppliers.Count
+                </span>
+
+                <span>
+                    @(FilteredSuppliers.Count == 1
+                        ? "resultado"
+                        : "resultados")
+                </span>
+
+            </div>
+
+        </div>
+
+
+        @if (isLoading)
+        {
+            <div class="table-state">
+
+                <div class="suppliers-spinner"></div>
+
+                <p>
+                    Cargando proveedores...
+                </p>
+
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="table-state">
+
+                <p class="error-title">
+                    No fue posible cargar los proveedores
+                </p>
+
+                <p class="error-description">
+                    @errorMessage
+                </p>
+
+                <button class="retry-button"
+                        @onclick="LoadSuppliersAsync">
+
+                    Reintentar
+
+                </button>
+
+            </div>
+        }
+        else if (FilteredSuppliers.Count == 0)
+        {
+            <div class="table-state">
+
+                <p class="empty-title">
+                    No se encontraron proveedores
+                </p>
+
+                <p class="empty-description">
+                    @(string.IsNullOrWhiteSpace(searchText)
+                        ? "Todavía no existen proveedores registrados."
+                        : "Intenta modificar los criterios de búsqueda.")
+                </p>
+
+            </div>
+        }
+        else
+        {
+            <div class="table-container">
+
+                <table class="suppliers-table">
+
+                    <thead>
+
+                        <tr>
+                            <th>Proveedor</th>
+                            <th>RFC / Tax ID</th>
+                            <th>Contacto</th>
+                            <th>Correo</th>
+                            <th>Teléfono</th>
+                            <th>Estado</th>
+                            <th class="text-right">Acciones</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        @foreach (var supplier in PagedSuppliers)
+                        {
+                            <tr>
+
+                                <td>
+
+                                    <div class="supplier-cell">
+
+                                        <div class="supplier-avatar">
+                                            @GetInitial(supplier)
+                                        </div>
+
+                                        <div>
+
+                                            <p class="supplier-name">
+                                                @supplier.Name
+                                            </p>
+
+                                            <p class="supplier-secondary">
+                                                Proveedor registrado
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <td>
+
+                                    @if (string.IsNullOrWhiteSpace(supplier.TaxId))
+                                    {
+                                        <span class="empty-value">
+                                            Sin registro
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="standard-value">
+                                            @supplier.TaxId
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <td>
+
+                                    @if (string.IsNullOrWhiteSpace(supplier.ContactName))
+                                    {
+                                        <span class="empty-value">
+                                            Sin contacto
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="standard-value">
+                                            @supplier.ContactName
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <td>
+
+                                    @if (string.IsNullOrWhiteSpace(supplier.Email))
+                                    {
+                                        <span class="empty-value">
+                                            Sin correo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="standard-value">
+                                            @supplier.Email
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <td>
+
+                                    @if (string.IsNullOrWhiteSpace(supplier.Phone))
+                                    {
+                                        <span class="empty-value">
+                                            Sin teléfono
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="standard-value">
+                                            @supplier.Phone
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="@GetStatusClass(supplier)">
+                                        <span class="status-dot"></span>
+                                        @(supplier.IsActive ? "Activo" : "Inactivo")
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <div class="action-group">
+
+                                        <button class="table-action"
+                                                title="Ver servicios"
+                                                @onclick="() => GoToServices(supplier.Id)">
+
+                                            <svg viewBox="0 0 24 24"
+                                                 fill="none"
+                                                 stroke="currentColor"
+                                                 stroke-width="1.6"
+                                                 class="h-4 w-4">
+
+                                                <path stroke-linecap="round"
+                                                      stroke-linejoin="round"
+                                                      d="M4.5 7.5h15m-15 4.5h15m-15 4.5h9" />
+
+                                            </svg>
+
+                                        </button>
+
+
+                                        @if (AuthState.IsAdministrator)
+                                        {
+                                            <button class="table-action"
+                                                    title="Administrar servicios"
+                                                    @onclick="() => GoToManageServices(supplier.Id)">
+
+                                                <svg viewBox="0 0 24 24"
+                                                     fill="none"
+                                                     stroke="currentColor"
+                                                     stroke-width="1.6"
+                                                     class="h-4 w-4">
+
+                                                    <path stroke-linecap="round"
+                                                          stroke-linejoin="round"
+                                                          d="M12 6.75h8.25M12 17.25h8.25M3.75 6.75h2.5M3.75 17.25h2.5M7.5 4.5v4.5M7.5 15v4.5" />
+
+                                                </svg>
+
+                                            </button>
+                                        }
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <div class="pagination">
+
+                <div class="pagination-info">
+
+                    Mostrando
+                    <strong>@FirstVisibleRecord</strong>
+                    –
+                    <strong>@LastVisibleRecord</strong>
+                    de
+                    <strong>@FilteredSuppliers.Count</strong>
+
+                </div>
+
+
+                <div class="pagination-controls">
+
+                    <button class="pagination-button"
+                            disabled="@(currentPage <= 1)"
+                            @onclick="PreviousPage">
+
+                        Anterior
+
+                    </button>
+
+
+                    <span class="page-indicator">
+
+                        Página
+                        <strong>@currentPage</strong>
+                        de
+                        <strong>@TotalPages</strong>
+
+                    </span>
+
+
+                    <button class="pagination-button"
+                            disabled="@(currentPage >= TotalPages)"
+                            @onclick="NextPage">
+
+                        Siguiente
+
+                    </button>
+
+                </div>
+
+            </div>
+        }
+
+    </section>
+
+</div>
+
+
+<style>
+
+    .suppliers-page {
+        width: 100%;
+        max-width: 1480px;
+        margin-inline: auto;
+    }
+
+    .page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+    }
+
+    .page-eyebrow {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .24em;
+    }
+
+    .page-title {
+        margin-top: 7px;
+        color: #f8fafc;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -.025em;
+    }
+
+    .page-description {
+        margin-top: 7px;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .primary-action {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 16px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 10px;
+        background: #e2e8f0;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 650;
+        transition: background .17s ease, transform .17s ease;
+    }
+
+        .primary-action:hover {
+            transform: translateY(-1px);
+            background: #f8fafc;
+        }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0,1fr));
+        gap: 14px;
+        margin-top: 28px;
+    }
+
+    .summary-card {
+        padding: 18px 20px;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 14px;
+        background: linear-gradient( 145deg, rgba(255,255,255,.022), rgba(255,255,255,.007) );
+    }
+
+    .summary-label {
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .11em;
+    }
+
+    .summary-value {
+        margin-top: 8px;
+        color: #e2e8f0;
+        font-size: 25px;
+        font-weight: 600;
+    }
+
+    .summary-description {
+        margin-top: 2px;
+        color: #475569;
+        font-size: 11px;
+    }
+
+    .business-rule {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid rgba(148,163,184,.075);
+        border-radius: 12px;
+        background: rgba(255,255,255,.012);
+    }
+
+    .business-rule-marker {
+        display: flex;
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 6px;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .business-rule-title {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .business-rule-text {
+        margin-top: 2px;
+        color: #475569;
+        font-size: 11px;
+        line-height: 1.6;
+    }
+
+    .suppliers-card {
+        margin-top: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.055);
+        border-radius: 15px;
+        background: rgba(255,255,255,.009);
+    }
+
+    .toolbar {
+        display: flex;
+        min-height: 72px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 14px 18px;
+        border-bottom: 1px solid rgba(255,255,255,.045);
+    }
+
+    .search-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 520px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        width: 17px;
+        height: 17px;
+        transform: translateY(-50%);
+        color: #475569;
+        pointer-events: none;
+    }
+
+    .search-input {
+        width: 100%;
+        min-height: 42px;
+        padding: 0 14px 0 42px;
+        border: 1px solid rgba(148,163,184,.11);
+        border-radius: 10px;
+        outline: none;
+        background: rgba(0,0,0,.15);
+        color: #cbd5e1;
+        font-size: 12px;
+    }
+
+        .search-input:focus {
+            border-color: rgba(148,163,184,.23);
+        }
+
+        .search-input::placeholder {
+            color: #334155;
+        }
+
+    .results-count {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        color: #475569;
+        font-size: 11px;
+    }
+
+    .results-number {
+        color: #94a3b8;
+        font-weight: 600;
+    }
+
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .suppliers-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+        .suppliers-table th {
+            padding: 12px 18px;
+            border-bottom: 1px solid rgba(255,255,255,.045);
+            color: #475569;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .suppliers-table td {
+            padding: 15px 18px;
+            border-bottom: 1px solid rgba(255,255,255,.035);
+            vertical-align: middle;
+            font-size: 12px;
+        }
+
+        .suppliers-table tbody tr:hover {
+            background: rgba(255,255,255,.015);
+        }
+
+    .supplier-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 180px;
+    }
+
+    .supplier-avatar {
+        display: flex;
+        width: 35px;
+        height: 35px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,.065);
+        border-radius: 9px;
+        background: rgba(255,255,255,.025);
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 650;
+    }
+
+    .supplier-name {
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .supplier-secondary {
+        margin-top: 2px;
+        color: #334155;
+        font-size: 10px;
+    }
+
+    .standard-value {
+        color: #64748b;
+    }
+
+    .empty-value {
+        color: #334155;
+        font-style: italic;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 9px;
+        border: 1px solid;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .status-active {
+        border-color: rgba(74,222,128,.13);
+        background: rgba(74,222,128,.055);
+        color: #86efac;
+    }
+
+    .status-inactive {
+        border-color: rgba(148,163,184,.10);
+        background: rgba(148,163,184,.035);
+        color: #64748b;
+    }
+
+    .status-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 9999px;
+        background: currentColor;
+    }
+
+    .action-group {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 3px;
+    }
+
+    .table-action {
+        display: inline-flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        background: transparent;
+        color: #64748b;
+        transition: .15s ease;
+    }
+
+        .table-action:hover {
+            border-color: rgba(148,163,184,.10);
+            background: rgba(255,255,255,.035);
+            color: #cbd5e1;
+        }
+
+    .table-state {
+        display: flex;
+        min-height: 280px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 30px;
+        color: #475569;
+        text-align: center;
+        font-size: 12px;
+    }
+
+    .suppliers-spinner {
+        width: 25px;
+        height: 25px;
+        margin-bottom: 14px;
+        border: 2px solid rgba(148,163,184,.10);
+        border-top-color: #64748b;
+        border-radius: 9999px;
+        animation: suppliersSpin .7s linear infinite;
+    }
+
+    .error-title,
+    .empty-title {
+        color: #94a3b8;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .error-description,
+    .empty-description {
+        margin-top: 5px;
+        color: #475569;
+    }
+
+    .retry-button {
+        margin-top: 15px;
+        padding: 8px 13px;
+        border: 1px solid rgba(148,163,184,.10);
+        border-radius: 8px;
+        background: rgba(255,255,255,.015);
+        color: #64748b;
+        font-size: 11px;
+    }
+
+    .pagination {
+        display: flex;
+        min-height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 12px 18px;
+        border-top: 1px solid rgba(255,255,255,.045);
+    }
+
+    .pagination-info,
+    .page-indicator {
+        color: #475569;
+        font-size: 11px;
+    }
+
+        .pagination-info strong,
+        .page-indicator strong {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .pagination-button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid rgba(148,163,184,.09);
+        border-radius: 8px;
+        background: rgba(255,255,255,.012);
+        color: #64748b;
+        font-size: 11px;
+    }
+
+        .pagination-button:disabled {
+            cursor: not-allowed;
+            opacity: .3;
+        }
+
+    @@keyframes suppliersSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@media (max-width: 900px) {
+
+        .page-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .summary-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .toolbar,
+        .pagination {
+            align-items: stretch;
+            flex-direction: column;
+        }
+    }
+
+</style>
+
+
+@code {
+
+    private List<SupplierModel> suppliers = [];
+
+    private string searchText = string.Empty;
+
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+    private int currentPage = 1;
+
+    private const int PageSize = 10;
+
+
+    private List<SupplierModel> FilteredSuppliers
+    {
+        get
+        {
+            IEnumerable<SupplierModel> query =
+                suppliers;
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var term =
+                    searchText.Trim();
+
+                query =
+                    query.Where(supplier =>
+                        Contains(supplier.Name, term)
+                        ||
+                        Contains(supplier.TaxId, term)
+                        ||
+                        Contains(supplier.ContactName, term)
+                        ||
+                        Contains(supplier.Email, term)
+                        ||
+                        Contains(supplier.Phone, term));
+            }
+
+            return query
+                .OrderBy(supplier => supplier.Name)
+                .ToList();
+        }
+    }
+
+
+    private List<SupplierModel> PagedSuppliers =>
+        FilteredSuppliers
+            .Skip((currentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+
+
+    private int ActiveCount =>
+        suppliers.Count(supplier =>
+            supplier.IsActive);
+
+
+    private int InactiveCount =>
+        suppliers.Count(supplier =>
+            !supplier.IsActive);
+
+
+    private int TotalPages =>
+        Math.Max(
+            1,
+            (int)Math.Ceiling(
+                FilteredSuppliers.Count /
+                (double)PageSize));
+
+
+    private int FirstVisibleRecord =>
+        FilteredSuppliers.Count == 0
+            ? 0
+            : ((currentPage - 1) * PageSize) + 1;
+
+
+    private int LastVisibleRecord =>
+        Math.Min(
+            currentPage * PageSize,
+            FilteredSuppliers.Count);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSuppliersAsync();
+    }
+
+
+    private async Task LoadSuppliersAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var result =
+                await SupplierApiService
+                    .GetAllAsync();
+
+            suppliers =
+                result.ToList();
+
+            currentPage = 1;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Navigation.NavigateTo(
+                "/",
+                replace: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private static bool Contains(
+        string? value,
+        string term)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.Contains(
+                term,
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    private static string GetInitial(
+        SupplierModel supplier)
+    {
+        if (string.IsNullOrWhiteSpace(supplier.Name))
+            return "P";
+
+        return supplier.Name[..1]
+            .ToUpperInvariant();
+    }
+
+
+    private static string GetStatusClass(
+        SupplierModel supplier)
+    {
+        return supplier.IsActive
+            ? "status-badge status-active"
+            : "status-badge status-inactive";
+    }
+
+
+    private void GoToCreate()
+    {
+        if (!AuthState.IsAdministrator)
+            return;
+
+        Navigation.NavigateTo(
+            "/suppliers/new");
+    }
+
+
+    private void GoToServices(
+        int supplierId)
+    {
+        Navigation.NavigateTo(
+            $"/suppliers/{supplierId}/services");
+    }
+
+
+    private void GoToManageServices(
+        int supplierId)
+    {
+        if (!AuthState.IsAdministrator)
+            return;
+
+        Navigation.NavigateTo(
+            $"/suppliers/{supplierId}/services/manage");
+    }
+
+
+    private void PreviousPage()
+    {
+        if (currentPage <= 1)
+            return;
+
+        currentPage--;
+    }
+
+
+    private void NextPage()
+    {
+        if (currentPage >= TotalPages)
+            return;
+
+        currentPage++;
+    }
+
+}
